@@ -194,16 +194,38 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        $userData = [
+            'id' => $user->id,
+            'email' => $user->email,
+            'nama' => $user->name, // menggunakan 'nama' sesuai spec
+            'role' => $user->role,
+            'avatar' => $user->avatar ?? null,
+        ];
+
+        // Tambahan data untuk guru: kelas yang diampu dengan detail
+        if ($user->role === 'guru' && !empty($user->kelas_diampu)) {
+            $kelasIds = $user->kelas_diampu;
+            $kelasDetail = \App\Models\Kelas::whereIn('id', $kelasIds)
+                ->select('id', 'nama', 'tingkat', 'jurusan_id')
+                ->with('jurusan:id,nama')
+                ->get();
+            $userData['kelas_diampu'] = $kelasDetail;
+        } else if ($user->role === 'guru') {
+            $userData['kelas_diampu'] = [];
+        }
+
+        // Tambahan data untuk siswa
+        if ($user->role === 'siswa') {
+            $userData['nisn'] = $user->nisn;
+            $userData['nis'] = $user->nis;
+            $userData['kelas'] = $user->kelas;
+            $userData['jurusan_id'] = $user->jurusan_id;
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
-                'user' => [
-                    'id' => $user->id,
-                    'email' => $user->email,
-                    'nama' => $user->name, // menggunakan 'nama' sesuai spec
-                    'role' => $user->role,
-                    'avatar' => $user->avatar ?? null,
-                ]
+                'user' => $userData
             ]
         ], 200);
     }

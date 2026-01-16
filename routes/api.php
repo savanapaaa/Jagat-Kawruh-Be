@@ -115,6 +115,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Kelompok management
         Route::get('/pbl/{id}/kelompok', [PBLController::class, 'getKelompok']);
         Route::post('/pbl/{id}/kelompok', [PBLController::class, 'createKelompok']);
+        Route::put('/pbl/{id}/kelompok/{kelompokId}', [PBLController::class, 'updateKelompok']);
+        Route::delete('/pbl/{id}/kelompok/{kelompokId}', [PBLController::class, 'deleteKelompok']);
         
         // Get submissions & nilai
         Route::get('/pbl/{id}/submissions', [PBLController::class, 'getSubmissions']);

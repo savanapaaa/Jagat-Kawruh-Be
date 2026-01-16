@@ -115,7 +115,7 @@ class GuruController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
             'password' => 'nullable|string|min:8',
-            'jurusan_id' => 'sometimes|required|string|exists:jurusans,id',
+            'jurusan_id' => 'nullable|string|exists:jurusans,id',
             'kelas_diampu' => 'nullable|array',
             'kelas_diampu.*' => 'integer|exists:kelas,id',
         ]);
@@ -164,7 +164,12 @@ class GuruController extends Controller
 
     private function normalizeJurusanId($jurusanId): ?string
     {
-        if ($jurusanId === null) {
+        if ($jurusanId === null || $jurusanId === '' || $jurusanId === 'NaN') {
+            return null;
+        }
+
+        // Handle jika frontend mengirim NaN sebagai string atau nilai tidak valid
+        if (is_string($jurusanId) && (strtolower($jurusanId) === 'nan' || $jurusanId === 'undefined' || $jurusanId === 'null')) {
             return null;
         }
 

@@ -10,6 +10,7 @@ class PBLSubmission extends Model
 {
     use HasFactory;
 
+    protected $table = 'pbl_submissions';
     protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'string';

@@ -157,11 +157,56 @@ class PBLController extends Controller
     public function store(Request $request)
     {
         try {
+            // Normalize kelas: bisa terima kelas_id (integer) atau tingkat (X/XI/XII)
+            $kelas = $request->input('kelas');
+            $kelasId = $request->input('kelas_id');
+            $jurusanId = $request->input('jurusan_id');
+            
+            // Jika frontend kirim kelas sebagai ID integer (bukan X/XI/XII), treat sebagai kelas_id
+            if (is_numeric($kelas) && !in_array($kelas, ['X', 'XI', 'XII'])) {
+                $kelasId = $kelas;
+                $kelas = null;
+            }
+            
+            // Jika ada kelas_id (ID dari tabel kelas), ambil data kelas
+            if ($kelasId) {
+                $kelasData = \App\Models\Kelas::find($kelasId);
+                if ($kelasData) {
+                    $kelas = $kelasData->tingkat; // X, XI, atau XII
+                    // Jika jurusan_id belum diset, ambil dari kelas
+                    if (!$jurusanId) {
+                        $jurusanId = $kelasData->jurusan_id;
+                    }
+                }
+            }
+            
+            // Jika kelas masih berupa nama penuh (misal "X RPL 1"), extract tingkatnya
+            if ($kelas && !in_array($kelas, ['X', 'XI', 'XII'])) {
+                if (preg_match('/^(X|XI|XII)/i', $kelas, $matches)) {
+                    $kelas = strtoupper($matches[1]);
+                }
+            }
+            
+            // Normalize jurusan_id: bisa terima nama (RPL, TKJ) atau ID (JUR-1)
+            if ($jurusanId && !str_starts_with((string)$jurusanId, 'JUR-')) {
+                // Cari berdasarkan nama jurusan
+                $jurusan = \App\Models\Jurusan::where('nama', $jurusanId)->first();
+                if ($jurusan) {
+                    $jurusanId = $jurusan->id;
+                }
+            }
+            
+            // Merge normalized values
+            $request->merge([
+                'kelas' => $kelas,
+                'jurusan_id' => $jurusanId,
+            ]);
+            
             $validator = Validator::make($request->all(), [
                 'judul' => 'required|string|max:255',
-                'masalah' => 'required|string',
-                'tujuan_pembelajaran' => 'required|string',
-                'panduan' => 'required|string',
+                'masalah' => 'nullable|string',
+                'tujuan_pembelajaran' => 'nullable|string',
+                'panduan' => 'nullable|string',
                 'referensi' => 'nullable|string',
                 'kelas' => 'required|in:X,XI,XII',
                 'jurusan_id' => 'required|exists:jurusans,id',
@@ -174,6 +219,10 @@ class PBLController extends Controller
             ]);
 
             if ($validator->fails()) {
+                \Log::error('PBL Store Validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'input' => $request->all()
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Validasi gagal',
@@ -648,10 +697,21 @@ class PBLController extends Controller
                 ], 404);
             }
 
+            // Normalize: frontend bisa kirim 'anggota', 'anggota_ids', atau 'anggota_kelompok'
+            $anggota = $request->input('anggota') 
+                ?? $request->input('anggota_ids') 
+                ?? $request->input('anggota_kelompok');
+            
+            // Jika anggota adalah string (nama), convert ke array
+            if (is_string($anggota)) {
+                $anggota = [$anggota];
+            }
+            
+            $request->merge(['anggota' => $anggota]);
+
             $validator = Validator::make($request->all(), [
                 'nama_kelompok' => 'required|string|max:255',
                 'anggota' => 'required|array|min:1',
-                'anggota.*' => 'required|string' // siswa-{id} format
             ]);
 
             if ($validator->fails()) {
@@ -677,6 +737,120 @@ class PBLController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal membuat kelompok',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update kelompok
+     * PUT /api/pbl/{id}/kelompok/{kelompokId}
+     */
+    public function updateKelompok(Request $request, string $id, string $kelompokId)
+    {
+        try {
+            $project = PBL::find($id);
+
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project PBL tidak ditemukan'
+                ], 404);
+            }
+
+            $kelompok = Kelompok::where('pbl_id', $id)->where('id', $kelompokId)->first();
+
+            if (!$kelompok) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kelompok tidak ditemukan'
+                ], 404);
+            }
+
+            // Normalize: frontend bisa kirim 'anggota', 'anggota_ids', atau 'anggota_kelompok'
+            $anggota = $request->input('anggota') 
+                ?? $request->input('anggota_ids') 
+                ?? $request->input('anggota_kelompok');
+            
+            // Jika anggota adalah string (nama), convert ke array
+            if (is_string($anggota)) {
+                $anggota = [$anggota];
+            }
+            
+            if ($anggota) {
+                $request->merge(['anggota' => $anggota]);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'nama_kelompok' => 'sometimes|required|string|max:255',
+                'anggota' => 'sometimes|required|array|min:1',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            if ($request->has('nama_kelompok')) {
+                $kelompok->nama_kelompok = $request->nama_kelompok;
+            }
+            if ($request->has('anggota')) {
+                $kelompok->anggota = $request->anggota;
+            }
+            $kelompok->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kelompok berhasil diupdate',
+                'data' => $kelompok
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengupdate kelompok',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete kelompok
+     * DELETE /api/pbl/{id}/kelompok/{kelompokId}
+     */
+    public function deleteKelompok(string $id, string $kelompokId)
+    {
+        try {
+            $project = PBL::find($id);
+
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project PBL tidak ditemukan'
+                ], 404);
+            }
+
+            $kelompok = Kelompok::where('pbl_id', $id)->where('id', $kelompokId)->first();
+
+            if (!$kelompok) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kelompok tidak ditemukan'
+                ], 404);
+            }
+
+            $kelompok->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kelompok berhasil dihapus'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus kelompok',
                 'error' => $e->getMessage()
             ], 500);
         }
