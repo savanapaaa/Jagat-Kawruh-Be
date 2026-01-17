@@ -17,9 +17,14 @@ class SiswaController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = User::where('role', 'siswa')->with('jurusan:id,nama');
+            $query = User::where('role', 'siswa')->with('jurusan:id,nama', 'kelasRelation:id,nama,tingkat,jurusan_id');
 
-            // Filter by kelas
+            // Filter by kelas_id
+            if ($request->has('kelas_id')) {
+                $query->where('kelas_id', $request->kelas_id);
+            }
+            
+            // Filter by kelas (tingkat - backward compatibility)
             if ($request->has('kelas')) {
                 $query->where('kelas', $request->kelas);
             }
@@ -47,7 +52,12 @@ class SiswaController extends Controller
                     'nis' => $s->nis,
                     'nama' => $s->name,
                     'email' => $s->email,
-                    'kelas' => $s->kelas,
+                    'kelas_id' => $s->kelas_id,
+                    'kelas' => $s->kelasRelation ? [
+                        'id' => $s->kelasRelation->id,
+                        'nama' => $s->kelasRelation->nama,
+                        'tingkat' => $s->kelasRelation->tingkat
+                    ] : $s->kelas,
                     'jurusan_id' => $s->jurusan_id,
                     'jurusan' => $s->jurusan ? [
                         'id' => $s->jurusan->id,
@@ -78,13 +88,52 @@ class SiswaController extends Controller
     public function store(Request $request)
     {
         try {
+            // Normalize: bisa terima kelas_id langsung atau kelas (tingkat/nama)
+            $kelasId = $request->input('kelas_id');
+            $kelas = $request->input('kelas');
+            $jurusanId = $request->input('jurusan_id');
+            
+            // Jika frontend kirim kelas (bukan kelas_id)
+            if (!$kelasId && $kelas) {
+                // Jika kelas adalah numeric, treat sebagai kelas_id
+                if (is_numeric($kelas)) {
+                    $kelasId = $kelas;
+                }
+            }
+            
+            // Jika ada kelas_id, ambil data kelas untuk isi tingkat dan jurusan
+            if ($kelasId) {
+                $kelasData = \App\Models\Kelas::find($kelasId);
+                if ($kelasData) {
+                    $kelas = $kelasData->tingkat; // X, XI, atau XII
+                    // Jika jurusan_id belum diset, ambil dari kelas
+                    if (!$jurusanId) {
+                        $jurusanId = $kelasData->jurusan_id;
+                    }
+                }
+            }
+            
+            // Jika kelas masih berupa nama penuh (misal "X RPL 1"), extract tingkatnya
+            if ($kelas && !in_array($kelas, ['X', 'XI', 'XII'])) {
+                if (preg_match('/^(X|XI|XII)/i', $kelas, $matches)) {
+                    $kelas = strtoupper($matches[1]);
+                }
+            }
+            
+            $request->merge([
+                'kelas' => $kelas,
+                'kelas_id' => $kelasId,
+                'jurusan_id' => $jurusanId,
+            ]);
+
             $validator = Validator::make($request->all(), [
                 'nis' => 'required|string|unique:users,nis',
                 'nama' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|string|min:8',
-                'kelas' => 'required|in:X,XI,XII',
-                'jurusan_id' => 'required|exists:jurusans,id'
+                'kelas_id' => 'nullable|exists:kelas,id',
+                'kelas' => 'nullable|in:X,XI,XII',
+                'jurusan_id' => 'nullable|exists:jurusans,id'
             ]);
 
             if ($validator->fails()) {
@@ -101,12 +150,13 @@ class SiswaController extends Controller
                 'password' => Hash::make($request->password),
                 'role' => 'siswa',
                 'nis' => $request->nis,
+                'kelas_id' => $request->kelas_id,
                 'kelas' => $request->kelas,
                 'jurusan_id' => $request->jurusan_id,
                 'is_active' => true
             ]);
 
-            $siswa->load('jurusan:id,nama');
+            $siswa->load('jurusan:id,nama', 'kelasRelation:id,nama,tingkat');
 
             return response()->json([
                 'success' => true,
@@ -116,7 +166,12 @@ class SiswaController extends Controller
                     'nis' => $siswa->nis,
                     'nama' => $siswa->name,
                     'email' => $siswa->email,
-                    'kelas' => $siswa->kelas,
+                    'kelas_id' => $siswa->kelas_id,
+                    'kelas' => $siswa->kelasRelation ? [
+                        'id' => $siswa->kelasRelation->id,
+                        'nama' => $siswa->kelasRelation->nama,
+                        'tingkat' => $siswa->kelasRelation->tingkat
+                    ] : $siswa->kelas,
                     'jurusan_id' => $siswa->jurusan_id,
                     'jurusan' => $siswa->jurusan ? [
                         'id' => $siswa->jurusan->id,
@@ -147,7 +202,7 @@ class SiswaController extends Controller
             
             $siswa = User::where('role', 'siswa')
                 ->where('id', $numericId)
-                ->with('jurusan:id,nama')
+                ->with('jurusan:id,nama', 'kelasRelation:id,nama,tingkat,jurusan_id')
                 ->first();
 
             if (!$siswa) {
@@ -164,7 +219,67 @@ class SiswaController extends Controller
                     'nis' => $siswa->nis,
                     'nama' => $siswa->name,
                     'email' => $siswa->email,
-                    'kelas' => $siswa->kelas,
+                    'kelas_id' => $siswa->kelas_id,
+                    'kelas' => $siswa->kelasRelation ? [
+                        'id' => $siswa->kelasRelation->id,
+                        'nama' => $siswa->kelasRelation->nama,
+                        'tingkat' => $siswa->kelasRelation->tingkat
+                    ] : $siswa->kelas,
+                    'jurusan_id' => $siswa->jurusan_id,
+                    'jurusan' => $siswa->jurusan ? [
+                        'id' => $siswa->jurusan->id,
+                        'nama' => $siswa->jurusan->nama
+                    ] : null,
+                    'avatar' => $siswa->avatar,
+                    'created_at' => $siswa->created_at
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data siswa',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Display data siswa yang sedang login
+     * GET /api/siswa/me
+     */
+    public function showSelf(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            // Pastikan user adalah siswa
+            if ($user->role !== 'siswa') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akses ditolak. Hanya siswa yang bisa mengakses endpoint ini.'
+                ], 403);
+            }
+            
+            // Load relations
+            $siswa = User::where('id', $user->id)
+                ->with('jurusan:id,nama', 'kelasRelation:id,nama,tingkat,jurusan_id')
+                ->first();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => 'siswa-' . $siswa->id,
+                    'nis' => $siswa->nis,
+                    'nisn' => $siswa->nisn,
+                    'nama' => $siswa->name,
+                    'email' => $siswa->email,
+                    'kelas_id' => $siswa->kelas_id,
+                    'kelas' => $siswa->kelasRelation ? [
+                        'id' => $siswa->kelasRelation->id,
+                        'nama' => $siswa->kelasRelation->nama,
+                        'tingkat' => $siswa->kelasRelation->tingkat,
+                        'jurusan_id' => $siswa->kelasRelation->jurusan_id
+                    ] : $siswa->kelas,
                     'jurusan_id' => $siswa->jurusan_id,
                     'jurusan' => $siswa->jurusan ? [
                         'id' => $siswa->jurusan->id,
@@ -203,13 +318,53 @@ class SiswaController extends Controller
                 ], 404);
             }
 
+            // Normalize: bisa terima kelas_id langsung atau kelas (tingkat/nama)
+            $kelasId = $request->input('kelas_id');
+            $kelas = $request->input('kelas');
+            $jurusanId = $request->input('jurusan_id');
+            
+            // Jika frontend kirim kelas (bukan kelas_id)
+            if (!$kelasId && $kelas) {
+                // Jika kelas adalah numeric, treat sebagai kelas_id
+                if (is_numeric($kelas)) {
+                    $kelasId = $kelas;
+                    $kelas = null;
+                }
+            }
+            
+            // Jika ada kelas_id, ambil data kelas untuk isi tingkat dan jurusan
+            if ($kelasId) {
+                $kelasData = \App\Models\Kelas::find($kelasId);
+                if ($kelasData) {
+                    $kelas = $kelasData->tingkat; // X, XI, atau XII
+                    // Jika jurusan_id belum diset, ambil dari kelas
+                    if (!$jurusanId) {
+                        $jurusanId = $kelasData->jurusan_id;
+                    }
+                }
+            }
+            
+            // Jika kelas masih berupa nama penuh (misal "X RPL 1"), extract tingkatnya
+            if ($kelas && !in_array($kelas, ['X', 'XI', 'XII'])) {
+                if (preg_match('/^(X|XI|XII)/i', $kelas, $matches)) {
+                    $kelas = strtoupper($matches[1]);
+                }
+            }
+            
+            $request->merge([
+                'kelas' => $kelas,
+                'kelas_id' => $kelasId,
+                'jurusan_id' => $jurusanId,
+            ]);
+
             $validator = Validator::make($request->all(), [
                 'nis' => 'sometimes|string|unique:users,nis,' . $numericId,
                 'nama' => 'sometimes|string|max:255',
                 'email' => 'sometimes|email|unique:users,email,' . $numericId,
                 'password' => 'nullable|string|min:8',
-                'kelas' => 'sometimes|in:X,XI,XII',
-                'jurusan_id' => 'sometimes|exists:jurusans,id'
+                'kelas_id' => 'nullable|exists:kelas,id',
+                'kelas' => 'nullable|in:X,XI,XII',
+                'jurusan_id' => 'nullable|exists:jurusans,id'
             ]);
 
             if ($validator->fails()) {
@@ -224,12 +379,13 @@ class SiswaController extends Controller
             if ($request->has('nama')) $updateData['name'] = $request->nama;
             if ($request->has('email')) $updateData['email'] = $request->email;
             if ($request->has('nis')) $updateData['nis'] = $request->nis;
-            if ($request->has('kelas')) $updateData['kelas'] = $request->kelas;
-            if ($request->has('jurusan_id')) $updateData['jurusan_id'] = $request->jurusan_id;
-            if ($request->has('password')) $updateData['password'] = Hash::make($request->password);
+            if ($request->filled('kelas_id')) $updateData['kelas_id'] = $request->kelas_id;
+            if ($request->filled('kelas')) $updateData['kelas'] = $request->kelas;
+            if ($request->filled('jurusan_id')) $updateData['jurusan_id'] = $request->jurusan_id;
+            if ($request->has('password') && $request->password) $updateData['password'] = Hash::make($request->password);
 
             $siswa->update($updateData);
-            $siswa->load('jurusan:id,nama');
+            $siswa->load('jurusan:id,nama', 'kelasRelation:id,nama,tingkat');
 
             return response()->json([
                 'success' => true,
@@ -239,7 +395,12 @@ class SiswaController extends Controller
                     'nis' => $siswa->nis,
                     'nama' => $siswa->name,
                     'email' => $siswa->email,
-                    'kelas' => $siswa->kelas,
+                    'kelas_id' => $siswa->kelas_id,
+                    'kelas' => $siswa->kelasRelation ? [
+                        'id' => $siswa->kelasRelation->id,
+                        'nama' => $siswa->kelasRelation->nama,
+                        'tingkat' => $siswa->kelasRelation->tingkat
+                    ] : $siswa->kelas,
                     'jurusan_id' => $siswa->jurusan_id,
                     'jurusan' => $siswa->jurusan ? [
                         'id' => $siswa->jurusan->id,

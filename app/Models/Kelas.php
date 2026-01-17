@@ -26,4 +26,22 @@ class Kelas extends Model
     {
         return $this->belongsTo(Jurusan::class, 'jurusan_id', 'id');
     }
+
+    /**
+     * Many-to-many relationship with Materi
+     */
+    public function materis()
+    {
+        return $this->belongsToMany(Materi::class, 'materi_kelas', 'kelas_id', 'materi_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Many-to-many relationship with Kuis
+     */
+    public function kuis()
+    {
+        return $this->belongsToMany(Kuis::class, 'kuis_kelas', 'kelas_id', 'kuis_id')
+            ->withTimestamps();
+    }
 }

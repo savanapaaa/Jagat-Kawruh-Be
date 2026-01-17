@@ -12,35 +12,47 @@ class MateriController extends Controller
     /**
      * Display a listing of materi
      * GET /api/materi
-     * Query params: kelas, status
-     * Siswa: hanya lihat yang dipublikasikan & sesuai kelasnya
+     * Query params: kelas, kelas_id, status
+     * Siswa: hanya lihat yang dipublikasikan & sesuai kelasnya (via pivot table)
      * Guru/Admin: lihat semua
      */
     public function index(Request $request)
     {
         try {
             $user = auth()->user();
-            $query = Materi::query();
+            $query = Materi::with('kelasRelation:id,nama,tingkat');
 
             // Guru hanya melihat materi yang dia buat (admin tetap lihat semua)
             if ($user && $user->role === 'guru') {
                 $query->where('created_by', $user->id);
             }
 
-            // Siswa hanya bisa lihat materi yang dipublikasikan
+            // Siswa hanya bisa lihat materi yang dipublikasikan & sesuai kelas_id
             if ($user->role === 'siswa') {
                 // DB enum uses "Published"; keep backward-compat if legacy rows exist.
                 $query->whereIn('status', ['Published', 'Dipublikasikan']);
                 
-                // Filter by kelas siswa jika ada
-                if ($user->kelas) {
-                    $query->whereJsonContains('kelas', $user->kelas);
+                // Filter by kelas siswa menggunakan pivot table
+                if ($user->kelas_id) {
+                    $query->whereHas('kelasRelation', function($q) use ($user) {
+                        $q->where('kelas.id', $user->kelas_id);
+                    });
                 }
             }
 
-            // Filter by kelas (dari query param, untuk guru/admin)
+            // Filter by kelas_id (dari query param, untuk guru/admin)
+            if ($request->has('kelas_id') && in_array($user->role, ['guru', 'admin'])) {
+                $query->whereHas('kelasRelation', function($q) use ($request) {
+                    $q->where('kelas.id', $request->kelas_id);
+                });
+            }
+
+            // Filter by kelas tingkat (dari query param, untuk guru/admin) - backward compat
             if ($request->has('kelas') && in_array($user->role, ['guru', 'admin'])) {
-                $query->whereJsonContains('kelas', $request->kelas);
+                $kelasParam = $request->kelas;
+                $query->whereHas('kelasRelation', function($q) use ($kelasParam) {
+                    $q->where('kelas.tingkat', $kelasParam);
+                });
             }
 
             // Filter by status (untuk guru/admin)
@@ -54,7 +66,16 @@ class MateriController extends Controller
                 return [
                     'id' => $m->id,
                     'judul' => $m->judul,
+                    'deskripsi' => $m->deskripsi,
+                    // Legacy field (array of tingkat) - for backward compat
                     'kelas' => $m->kelas,
+                    // New: array of kelas objects from pivot
+                    'kelas_list' => $m->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $m->kelasRelation->pluck('id'),
                     'file_name' => $m->file_name,
                     'file_size' => $m->file_size,
                     'status' => $m->status,
@@ -85,7 +106,9 @@ class MateriController extends Controller
             $validator = Validator::make($request->all(), [
                 'judul' => 'required|string|max:255',
                 'deskripsi' => 'nullable|string',
-                'kelas' => 'required', // Bisa string atau array
+                'kelas' => 'sometimes', // Legacy: array of tingkat (X, XI, XII)
+                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas_ids.*' => 'integer|exists:kelas,id',
                 // Optional (FE form doesn't always send it)
                 'jurusan_id' => 'nullable|exists:jurusans,id',
                 // Accept FE label "Dipublikasikan" but persist as DB enum value "Published"
@@ -93,7 +116,6 @@ class MateriController extends Controller
                 'file' => 'nullable|file|mimes:pdf|max:10240' // Max 10MB
             ], [
                 'judul.required' => 'Judul materi wajib diisi',
-                'kelas.required' => 'Kelas wajib dipilih',
                 'file.mimes' => 'File harus berformat PDF',
                 'file.max' => 'File maksimal 10MB'
             ]);
@@ -106,7 +128,7 @@ class MateriController extends Controller
                 ], 422);
             }
 
-            $kelas = $this->normalizeKelas($request->kelas);
+            $kelas = $request->has('kelas') ? $this->normalizeKelas($request->kelas) : [];
             $status = $this->normalizeStatus($request->status ?? 'Draft');
 
             // Handle file upload if present
@@ -137,6 +159,14 @@ class MateriController extends Controller
                 'created_by' => auth()->id()
             ]);
 
+            // Sync kelas via pivot table
+            if ($request->has('kelas_ids') && is_array($request->kelas_ids)) {
+                $materi->kelasRelation()->sync($request->kelas_ids);
+            }
+
+            // Load kelas relation for response
+            $materi->load('kelasRelation:id,nama,tingkat');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Materi berhasil dibuat',
@@ -144,6 +174,12 @@ class MateriController extends Controller
                     'id' => $materi->id,
                     'judul' => $materi->judul,
                     'kelas' => $materi->kelas,
+                    'kelas_list' => $materi->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $materi->kelasRelation->pluck('id'),
                     'jurusan_id' => $materi->jurusan_id,
                     'file_name' => $materi->file_name,
                     'file_size' => $materi->file_size,
@@ -167,7 +203,7 @@ class MateriController extends Controller
     public function show(string $id)
     {
         try {
-            $materi = Materi::find($id);
+            $materi = Materi::with('kelasRelation:id,nama,tingkat')->find($id);
 
             if (!$materi) {
                 return response()->json([
@@ -181,7 +217,14 @@ class MateriController extends Controller
                 'data' => [
                     'id' => $materi->id,
                     'judul' => $materi->judul,
+                    'deskripsi' => $materi->deskripsi,
                     'kelas' => $materi->kelas,
+                    'kelas_list' => $materi->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $materi->kelasRelation->pluck('id'),
                     'file_name' => $materi->file_name,
                     'file_size' => $materi->file_size,
                     'status' => $materi->status,
@@ -216,7 +259,9 @@ class MateriController extends Controller
             $validator = Validator::make($request->all(), [
                 'judul' => 'sometimes|string|max:255',
                 'deskripsi' => 'nullable|string',
-                'kelas' => 'sometimes', // Bisa string atau array
+                'kelas' => 'sometimes', // Legacy: array of tingkat
+                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas_ids.*' => 'integer|exists:kelas,id',
                 'jurusan_id' => 'sometimes|exists:jurusans,id',
                 'status' => 'sometimes|in:Draft,Published,Archived,Dipublikasikan',
                 'file' => 'nullable|file|mimes:pdf|max:10240'
@@ -263,6 +308,14 @@ class MateriController extends Controller
 
             $materi->update($updateData);
 
+            // Sync kelas via pivot table jika ada kelas_ids
+            if ($request->has('kelas_ids') && is_array($request->kelas_ids)) {
+                $materi->kelasRelation()->sync($request->kelas_ids);
+            }
+
+            // Load kelas relation for response
+            $materi->load('kelasRelation:id,nama,tingkat');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Materi berhasil diupdate',
@@ -270,6 +323,12 @@ class MateriController extends Controller
                     'id' => $materi->id,
                     'judul' => $materi->judul,
                     'kelas' => $materi->kelas,
+                    'kelas_list' => $materi->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $materi->kelasRelation->pluck('id'),
                     'file_name' => $materi->file_name,
                     'file_size' => $materi->file_size,
                     'status' => $materi->status,

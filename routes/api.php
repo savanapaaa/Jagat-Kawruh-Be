@@ -54,6 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===== SISWA ROUTES (Data Master) =====
+    // Siswa bisa akses data dirinya sendiri
+    Route::get('/siswa/me', [SiswaController::class, 'showSelf']);
+    
     // Hanya GURU & ADMIN yang bisa akses data master siswa
     Route::middleware(['role:admin,guru'])->group(function () {
         Route::get('/siswa', [SiswaController::class, 'index']);
@@ -151,17 +154,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/helpdesk/{id}/status', [HelpdeskController::class, 'updateStatus']);
     });
 
-    // ===== SISWA ROUTES (Data Master) =====
-    // Hanya GURU & ADMIN yang bisa akses data master siswa
-    Route::middleware(['role:admin,guru'])->group(function () {
-        Route::get('/siswa', [SiswaController::class, 'index']);
-        Route::post('/siswa', [SiswaController::class, 'store']);
-        Route::post('/siswa/import', [SiswaController::class, 'import']);
-        Route::get('/siswa/{id}', [SiswaController::class, 'show']);
-        Route::put('/siswa/{id}', [SiswaController::class, 'update']);
-        Route::delete('/siswa/{id}', [SiswaController::class, 'destroy']);
-    });
-
     // ===== ADMIN ROUTES =====
     // Hanya ADMIN yang bisa akses user management
     Route::middleware(['role:admin'])->prefix('admin')->group(function () {
@@ -184,9 +176,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===== KELAS ROUTES (Data Master) =====
-    // Hanya ADMIN yang bisa manage data master kelas
+    // Semua role boleh READ daftar kelas
+    Route::get('/kelas', [KelasController::class, 'index']);
+    
+    // Hanya ADMIN yang bisa manage (create/update/delete) kelas
     Route::middleware(['role:admin'])->group(function () {
-        Route::get('/kelas', [KelasController::class, 'index']);
         Route::post('/kelas', [KelasController::class, 'store']);
         Route::put('/kelas/{id}', [KelasController::class, 'update'])->whereNumber('id');
         Route::delete('/kelas/{id}', [KelasController::class, 'destroy'])->whereNumber('id');

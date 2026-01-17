@@ -61,4 +61,14 @@ class Kuis extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * Many-to-many relationship with Kelas
+     * Pivot table: kuis_kelas
+     */
+    public function kelasRelation()
+    {
+        return $this->belongsToMany(Kelas::class, 'kuis_kelas', 'kuis_id', 'kelas_id')
+            ->withTimestamps();
+    }
 }

@@ -67,4 +67,14 @@ class Materi extends Model
     {
         return $this->belongsTo(Jurusan::class, 'jurusan_id');
     }
+
+    /**
+     * Many-to-many relationship with Kelas
+     * Pivot table: materi_kelas
+     */
+    public function kelasRelation()
+    {
+        return $this->belongsToMany(Kelas::class, 'materi_kelas', 'materi_id', 'kelas_id')
+            ->withTimestamps();
+    }
 }

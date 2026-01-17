@@ -16,8 +16,8 @@ class KuisController extends Controller
     /**
      * Display a listing of kuis
      * GET /api/kuis
-     * Query params: kelas, status
-     * Siswa: hanya lihat yang aktif & sesuai kelasnya
+     * Query params: kelas, kelas_id, status
+     * Siswa: hanya lihat yang aktif & sesuai kelasnya (via pivot table)
      * Guru/Admin: lihat semua
      */
     public function index(Request $request)
@@ -25,7 +25,7 @@ class KuisController extends Controller
         try {
             $user = auth()->user();
             $query = Kuis::query()->withCount('soal as jumlah_soal')
-                ->with(['soal:id,kuis_id,urutan'])
+                ->with(['soal:id,kuis_id,urutan', 'kelasRelation:id,nama,tingkat'])
                 ->select('kuis.*')->selectSub(function ($q) {
                     $q->from('hasil_kuis')
                         ->selectRaw('COUNT(DISTINCT siswa_id)')
@@ -37,19 +37,31 @@ class KuisController extends Controller
                 $query->where('created_by', $user->id);
             }
 
-            // Siswa hanya bisa lihat kuis yang aktif
+            // Siswa hanya bisa lihat kuis yang aktif & sesuai kelas_id
             if ($user->role === 'siswa') {
                 $query->where('status', 'Aktif');
                 
-                // Filter by kelas siswa jika ada
-                if ($user->kelas) {
-                    $query->whereJsonContains('kelas', $user->kelas);
+                // Filter by kelas siswa menggunakan pivot table
+                if ($user->kelas_id) {
+                    $query->whereHas('kelasRelation', function($q) use ($user) {
+                        $q->where('kelas.id', $user->kelas_id);
+                    });
                 }
             }
 
-            // Filter by kelas (dari query param, untuk guru/admin)
+            // Filter by kelas_id (dari query param, untuk guru/admin)
+            if ($request->has('kelas_id') && in_array($user->role, ['guru', 'admin'])) {
+                $query->whereHas('kelasRelation', function($q) use ($request) {
+                    $q->where('kelas.id', $request->kelas_id);
+                });
+            }
+
+            // Filter by kelas tingkat (dari query param, untuk guru/admin) - backward compat
             if ($request->has('kelas') && in_array($user->role, ['guru', 'admin'])) {
-                $query->whereJsonContains('kelas', $request->kelas);
+                $kelasParam = $request->kelas;
+                $query->whereHas('kelasRelation', function($q) use ($kelasParam) {
+                    $q->where('kelas.tingkat', $kelasParam);
+                });
             }
 
             // Filter by status (untuk guru/admin)
@@ -64,7 +76,15 @@ class KuisController extends Controller
                 return [
                     'id' => $k->id,
                     'judul' => $k->judul,
+                    // Legacy field (array of tingkat) - for backward compat
                     'kelas' => $k->kelas,
+                    // New: array of kelas objects from pivot
+                    'kelas_list' => $k->kelasRelation->map(fn($kls) => [
+                        'id' => $kls->id,
+                        'nama' => $kls->nama,
+                        'tingkat' => $kls->tingkat
+                    ]),
+                    'kelas_ids' => $k->kelasRelation->pluck('id'),
                     'batas_waktu' => $k->batas_waktu,
                     'total_peserta' => (int) ($k->total_peserta ?? 0),
                     // Count fields (aliases for FE compatibility)
@@ -171,8 +191,10 @@ class KuisController extends Controller
 
             $validator = Validator::make($payload, [
                 'judul' => 'required|string|max:255',
-                'kelas' => 'required|array|min:1',
+                'kelas' => 'sometimes|array', // Legacy: array of tingkat (X, XI, XII)
                 'kelas.*' => 'in:X,XI,XII',
+                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas_ids.*' => 'integer|exists:kelas,id',
                 // FE kadang belum mengirim batas_waktu saat create
                 'batas_waktu' => 'nullable|integer|min:1',
                 'status' => 'sometimes|in:Draft,Aktif,Selesai',
@@ -180,7 +202,6 @@ class KuisController extends Controller
                 'soal' => 'nullable|array',
             ], [
                 'judul.required' => 'Judul kuis wajib diisi',
-                'kelas.required' => 'Kelas wajib dipilih',
                 'kelas.*.in' => 'Kelas harus salah satu dari: X, XI, XII',
                 'batas_waktu.integer' => 'Batas waktu harus berupa angka',
             ]);
@@ -296,7 +317,12 @@ class KuisController extends Controller
 
             DB::commit();
 
-            $kuis->load('soal');
+            // Sync kelas via pivot table
+            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
+                $kuis->kelasRelation()->sync($payload['kelas_ids']);
+            }
+
+            $kuis->load('soal', 'kelasRelation:id,nama,tingkat');
             $kuis->loadCount('soal as jumlah_soal');
 
             return response()->json([
@@ -306,6 +332,12 @@ class KuisController extends Controller
                     'id' => $kuis->id,
                     'judul' => $kuis->judul,
                     'kelas' => $kuis->kelas,
+                    'kelas_list' => $kuis->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $kuis->kelasRelation->pluck('id'),
                     'batas_waktu' => $kuis->batas_waktu,
                     'jumlah_soal' => $kuis->jumlah_soal ?? 0,
                     'status' => $kuis->status,
@@ -330,7 +362,9 @@ class KuisController extends Controller
     public function show(string $id)
     {
         try {
-            $kuis = Kuis::with('soal')->withCount('soal as jumlah_soal')->find($id);
+            $kuis = Kuis::with(['soal', 'kelasRelation:id,nama,tingkat'])
+                ->withCount('soal as jumlah_soal')
+                ->find($id);
 
             if (!$kuis) {
                 return response()->json([
@@ -350,6 +384,12 @@ class KuisController extends Controller
                     'id' => $kuis->id,
                     'judul' => $kuis->judul,
                     'kelas' => $kuis->kelas,
+                    'kelas_list' => $kuis->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $kuis->kelasRelation->pluck('id'),
                     'batas_waktu' => $kuis->batas_waktu,
                     'status' => $kuis->status,
                     'total_peserta' => (int) $totalPeserta,
@@ -478,7 +518,9 @@ class KuisController extends Controller
 
             $validator = Validator::make($payload, [
                 'judul' => 'sometimes|string|max:255',
-                'kelas' => 'sometimes', // Bisa string JSON atau array
+                'kelas' => 'sometimes', // Legacy: array of tingkat
+                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas_ids.*' => 'integer|exists:kelas,id',
                 'batas_waktu' => 'sometimes|integer|min:1',
                 'status' => 'sometimes|in:Draft,Aktif,Selesai',
                 // soal divalidasi terpisah jika ada yang terisi
@@ -558,12 +600,30 @@ class KuisController extends Controller
 
             DB::commit();
 
-            $kuis->load('soal');
+            // Sync kelas via pivot table jika ada kelas_ids
+            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
+                $kuis->kelasRelation()->sync($payload['kelas_ids']);
+            }
+
+            $kuis->load('soal', 'kelasRelation:id,nama,tingkat');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Kuis berhasil diupdate',
-                'data' => $kuis
+                'data' => [
+                    'id' => $kuis->id,
+                    'judul' => $kuis->judul,
+                    'kelas' => $kuis->kelas,
+                    'kelas_list' => $kuis->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $kuis->kelasRelation->pluck('id'),
+                    'batas_waktu' => $kuis->batas_waktu,
+                    'status' => $kuis->status,
+                    'soal' => $kuis->soal,
+                ]
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();

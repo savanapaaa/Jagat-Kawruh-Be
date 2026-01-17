@@ -25,6 +25,7 @@ class User extends Authenticatable
         'nis',
         'nip',
         'kelas',
+        'kelas_id',
         'jurusan_id',
         'kelas_diampu',
         'phone',
@@ -115,5 +116,13 @@ class User extends Authenticatable
     public function jurusan()
     {
         return $this->belongsTo(Jurusan::class, 'jurusan_id', 'id');
+    }
+
+    /**
+     * Relationship: User (Siswa) belongs to Kelas
+     */
+    public function kelasRelation()
+    {
+        return $this->belongsTo(Kelas::class, 'kelas_id', 'id');
     }
 }

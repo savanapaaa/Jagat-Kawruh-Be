@@ -220,6 +220,18 @@ class AuthController extends Controller
             $userData['nis'] = $user->nis;
             $userData['kelas'] = $user->kelas;
             $userData['jurusan_id'] = $user->jurusan_id;
+            $userData['kelas_id'] = $user->kelas_id;
+            
+            // Load kelas relation dengan detail lengkap
+            if ($user->kelas_id) {
+                $kelasDetail = \App\Models\Kelas::where('id', $user->kelas_id)
+                    ->select('id', 'nama', 'tingkat', 'jurusan_id')
+                    ->with('jurusan:id,nama')
+                    ->first();
+                $userData['kelas_relation'] = $kelasDetail;
+            } else {
+                $userData['kelas_relation'] = null;
+            }
         }
 
         return response()->json([
