@@ -54,6 +54,12 @@ class NilaiController extends Controller
                     ->whereIn('status', ['submitted', 'expired'])
                     ->orderBy('submitted_at', 'desc');
 
+                if ($user->role === 'guru') {
+                    $kuisQuery->whereHas('kuis', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    });
+                }
+
                 if (isset($siswaId)) {
                     $kuisQuery->where('siswa_id', $siswaId);
                 } elseif ($user->role !== 'siswa') {
@@ -107,13 +113,20 @@ class NilaiController extends Controller
                 // build PBL rows from kelompok membership so that projects still appear
                 // even when nilai kelompok belum di-set.
                 if (isset($siswaId)) {
-                    $kelompokRows = Kelompok::with('pbl:id,judul')
+                    $kelompokQuery = Kelompok::with('pbl:id,judul')
                         ->where(function ($q) use ($siswaId) {
                             $q->whereJsonContains('anggota', $siswaId)
                                 ->orWhereJsonContains('anggota', (string) $siswaId)
                                 ->orWhereJsonContains('anggota', 'siswa-' . $siswaId);
-                        })
-                        ->get();
+                        });
+
+                    if ($user->role === 'guru') {
+                        $kelompokQuery->whereHas('pbl', function($q) use ($user) {
+                            $q->where('created_by', $user->id);
+                        });
+                    }
+
+                    $kelompokRows = $kelompokQuery->get();
 
                     $kelompokIds = $kelompokRows->pluck('id')->values()->all();
                     $latestByKelompok = collect();
@@ -163,6 +176,12 @@ class NilaiController extends Controller
                     ])
                         ->whereNotNull('nilai')
                         ->orderBy('submitted_at', 'desc');
+
+                    if ($user->role === 'guru') {
+                        $pblQuery->whereHas('pbl', function($q) use ($user) {
+                            $q->where('created_by', $user->id);
+                        });
+                    }
 
                     if (isset($kelas) && $user->role !== 'siswa') {
                         $pblQuery->whereHas('pbl', function($q) use ($kelas) {
@@ -253,10 +272,17 @@ class NilaiController extends Controller
 
             foreach ($siswaList as $siswa) {
                 // Get nilai kuis dari KuisAttempt (hanya submitted/expired)
-                $nilaiKuis = KuisAttempt::where('siswa_id', $siswa->id)
+                $kuisQuery = KuisAttempt::where('siswa_id', $siswa->id)
                     ->whereIn('status', ['submitted', 'expired'])
-                    ->with('kuis:id,judul')
-                    ->get()
+                    ->with('kuis:id,judul');
+
+                if ($user->role === 'guru') {
+                    $kuisQuery->whereHas('kuis', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    });
+                }
+
+                $nilaiKuis = $kuisQuery->get()
                     ->map(function($attempt) {
                         return [
                             'attempt_id' => $attempt->id,
@@ -272,14 +298,21 @@ class NilaiController extends Controller
                     });
 
                 // Get nilai PBL (submissions where siswa is in kelompok anggota)
-                $nilaiPBL = PBLSubmission::whereHas('kelompok', function($q) use ($siswa) {
+                $pblQuery = PBLSubmission::whereHas('kelompok', function($q) use ($siswa) {
                         $q->whereJsonContains('anggota', $siswa->id)
                             ->orWhereJsonContains('anggota', (string)$siswa->id)
                             ->orWhereJsonContains('anggota', 'siswa-' . $siswa->id);
                     })
                     ->whereNotNull('nilai')
-                    ->with('pbl:id,judul')
-                    ->get()
+                    ->with('pbl:id,judul');
+
+                if ($user->role === 'guru') {
+                    $pblQuery->whereHas('pbl', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    });
+                }
+
+                $nilaiPBL = $pblQuery->get()
                     ->map(function($submission) {
                         return [
                             'project_id' => $submission->pbl_id,
@@ -422,6 +455,12 @@ class NilaiController extends Controller
             ->whereIn('status', ['submitted', 'expired'])
             ->orderBy('submitted_at', 'desc');
 
+        if ($authUser->role === 'guru') {
+            $kuisQuery->whereHas('kuis', function($q) use ($authUser) {
+                $q->where('created_by', $authUser->id);
+            });
+        }
+
         if (isset($siswaId)) {
             $kuisQuery->where('siswa_id', $siswaId);
         } else {
@@ -460,6 +499,12 @@ class NilaiController extends Controller
         $pblQuery = PBLSubmission::with(['pbl:id,judul,kelas', 'pbl.kelasRelation:id,nama', 'kelompok'])
             ->whereNotNull('nilai')
             ->orderBy('submitted_at', 'desc');
+
+        if ($authUser->role === 'guru') {
+            $pblQuery->whereHas('pbl', function($q) use ($authUser) {
+                $q->where('created_by', $authUser->id);
+            });
+        }
 
         if (isset($siswaId)) {
             $pblQuery->whereHas('kelompok', function($q) use ($siswaId) {
