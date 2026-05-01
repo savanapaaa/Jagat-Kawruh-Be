@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\KuisAttempt;
 use App\Models\Kelompok;
 use App\Models\PBLSubmission;
+use App\Models\MateriSubmission;
 use App\Models\User;
 use App\Models\Kelas;
 use Illuminate\Http\Request;
@@ -221,6 +222,58 @@ class NilaiController extends Controller
                 $data['rata_rata_pbl'] = $avgPBL;
             }
 
+            // Get Nilai Materi
+            if ($type === 'materi' || $type === 'all') {
+                $materiQuery = MateriSubmission::with(['materi:id,judul', 'siswa:id,name,kelas,kelas_id', 'siswa.kelasRelation:id,nama'])
+                    ->whereNotNull('nilai')
+                    ->orderBy('submitted_at', 'desc');
+
+                if ($user->role === 'guru') {
+                    $materiQuery->whereHas('materi', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    });
+                }
+
+                if (isset($siswaId)) {
+                    $materiQuery->where('siswa_id', $siswaId);
+                } elseif ($user->role !== 'siswa') {
+                    if (isset($kelas)) {
+                        $materiQuery->whereHas('siswa', function($q) use ($kelas) {
+                            $q->where('kelas', $kelas)
+                                ->orWhereHas('kelasRelation', function($kelasQ) use ($kelas) {
+                                    $kelasQ->where('nama', $kelas);
+                                });
+                        });
+                    } elseif (isset($kelasId)) {
+                        $materiQuery->whereHas('siswa', function($q) use ($kelasId) {
+                            $q->where('kelas_id', $kelasId);
+                        });
+                    }
+                }
+
+                $nilaiMateri = $materiQuery->get()->map(function($submission) {
+                    return [
+                        'id' => 'nilai-materi-' . $submission->id,
+                        'submission_id' => $submission->id,
+                        'materi_id' => $submission->materi_id,
+                        'materi_judul' => $submission->materi ? $submission->materi->judul : '-',
+                        'siswa_id' => $submission->siswa_id,
+                        'siswa_nama' => $submission->siswa ? $submission->siswa->name : '-',
+                        'kelas' => $submission->siswa ? ($submission->siswa->kelasRelation->nama ?? $submission->siswa->kelas) : '-',
+                        'kelas_id' => $submission->siswa ? $submission->siswa->kelas_id : null,
+                        'nilai' => $submission->nilai,
+                        'feedback' => $submission->feedback,
+                        'tanggal' => $submission->submitted_at,
+                        'type' => 'materi'
+                    ];
+                });
+
+                $data['materi'] = $nilaiMateri;
+                
+                $avgMateri = $nilaiMateri->count() > 0 ? round($nilaiMateri->avg('nilai'), 2) : 0;
+                $data['rata_rata_materi'] = $avgMateri;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $data
@@ -322,6 +375,28 @@ class NilaiController extends Controller
                         ];
                     });
 
+                // Get nilai Materi
+                $materiQuery = MateriSubmission::where('siswa_id', $siswa->id)
+                    ->whereNotNull('nilai')
+                    ->with('materi:id,judul');
+
+                if ($user->role === 'guru') {
+                    $materiQuery->whereHas('materi', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    });
+                }
+
+                $nilaiMateri = $materiQuery->get()
+                    ->map(function($submission) {
+                        return [
+                            'submission_id' => $submission->id,
+                            'materi_id' => $submission->materi_id,
+                            'materi_judul' => $submission->materi ? $submission->materi->judul : null,
+                            'nilai' => $submission->nilai,
+                            'tanggal' => $submission->submitted_at
+                        ];
+                    });
+
                 $result[] = [
                     'siswa_id' => 'siswa-' . $siswa->id,
                     'nama' => $siswa->name,
@@ -329,8 +404,10 @@ class NilaiController extends Controller
                     'kelas' => $siswa->kelasRelation->nama ?? $siswa->kelas,
                     'nilai_kuis' => $nilaiKuis,
                     'nilai_pbl' => $nilaiPBL,
+                    'nilai_materi' => $nilaiMateri,
                     'rata_rata_kuis' => $nilaiKuis->avg('nilai'),
-                    'rata_rata_pbl' => $nilaiPBL->avg('nilai')
+                    'rata_rata_pbl' => $nilaiPBL->avg('nilai'),
+                    'rata_rata_materi' => $nilaiMateri->avg('nilai')
                 ];
             }
 
@@ -395,6 +472,16 @@ class NilaiController extends Controller
                 $rows = $this->buildPblRowsForExport($user, $siswaId, $kelas, $kelasId);
                 $this->addSheet($spreadsheet, 'PBL', [
                     'Judul Project',
+                    'Nama Siswa',
+                    'Kelas',
+                    'Nilai',
+                ], $rows);
+            }
+
+            if ($type === 'materi' || $type === 'all') {
+                $rows = $this->buildMateriRowsForExport($user, $siswaId, $kelas, $kelasId);
+                $this->addSheet($spreadsheet, 'Materi', [
+                    'Judul Materi',
                     'Nama Siswa',
                     'Kelas',
                     'Nilai',
@@ -597,6 +684,51 @@ class NilaiController extends Controller
                 $anggotaText,
                 $kelasNama,
                 $submission->nilai,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function buildMateriRowsForExport($authUser, $siswaId, $kelas, $kelasId): array
+    {
+        $materiQuery = MateriSubmission::with(['materi:id,judul', 'siswa:id,name,kelas,kelas_id', 'siswa.kelasRelation:id,nama'])
+            ->whereNotNull('nilai')
+            ->orderBy('submitted_at', 'desc');
+
+        if ($authUser->role === 'guru') {
+            $materiQuery->whereHas('materi', function($q) use ($authUser) {
+                $q->where('created_by', $authUser->id);
+            });
+        }
+
+        if (isset($siswaId)) {
+            $materiQuery->where('siswa_id', $siswaId);
+        } else {
+            if (isset($kelas)) {
+                $materiQuery->whereHas('siswa', function($q) use ($kelas) {
+                    $q->where('kelas', $kelas)
+                        ->orWhereHas('kelasRelation', function($kelasQ) use ($kelas) {
+                            $kelasQ->where('nama', $kelas);
+                        });
+                });
+            } elseif (isset($kelasId)) {
+                $materiQuery->whereHas('siswa', function($q) use ($kelasId) {
+                    $q->where('kelas_id', $kelasId);
+                });
+            }
+        }
+
+        $submissions = $materiQuery->get();
+
+        $rows = [];
+        foreach ($submissions as $sub) {
+            $kelasNama = $sub->siswa ? ($sub->siswa->kelasRelation->nama ?? $sub->siswa->kelas) : null;
+            $rows[] = [
+                $sub->materi ? $sub->materi->judul : null,
+                $sub->siswa ? $sub->siswa->name : null,
+                $kelasNama,
+                $sub->nilai,
             ];
         }
 
