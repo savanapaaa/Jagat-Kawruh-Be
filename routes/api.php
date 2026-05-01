@@ -12,10 +12,15 @@ use App\Http\Controllers\NilaiController;
 use App\Http\Controllers\NotifikasiController;
 use App\Http\Controllers\HelpdeskController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\MateriSubmissionController;
 use App\Http\Controllers\GuruController;
 use App\Http\Controllers\KelasController;
+use App\Http\Controllers\PBLJobdeskController;
+use App\Http\Controllers\PBLKontribusiController;
+use App\Http\Controllers\PBLNilaiIndividuController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Guru\SiswaController as GuruSiswaController;
+use App\Http\Controllers\PBLProgressController;
 
 /*
 |--------------------------------------------------------------------------
@@ -71,15 +76,26 @@ Route::middleware('auth:sanctum')->group(function () {
     // Siswa boleh READ kuis yang aktif & submit jawaban
     Route::get('/kuis', [KuisController::class, 'index']);
     Route::get('/kuis/{id}', [KuisController::class, 'show']);
-    Route::post('/kuis/{id}/submit', [KuisController::class, 'submit']);
+    Route::post('/kuis/{id}/submit', [KuisController::class, 'submit']); // Legacy endpoint
+    
+    // ===== KUIS ATTEMPT ROUTES (Sistem pengerjaan kuis) =====
+    // Semua role bisa akses (validasi di controller)
+    Route::get('/kuis/{kuisId}/attempts', [\App\Http\Controllers\KuisAttemptController::class, 'index']);
+    Route::post('/kuis/{kuisId}/attempts/start', [\App\Http\Controllers\KuisAttemptController::class, 'start']);
+    Route::get('/kuis/{kuisId}/attempts/{attemptId}', [\App\Http\Controllers\KuisAttemptController::class, 'show']);
+    Route::get('/kuis/{kuisId}/attempts/{attemptId}/questions', [\App\Http\Controllers\KuisAttemptController::class, 'getQuestions']);
+    Route::put('/kuis/{kuisId}/attempts/{attemptId}/answers', [\App\Http\Controllers\KuisAttemptController::class, 'saveAnswers']);
+    Route::post('/kuis/{kuisId}/attempts/{attemptId}/submit', [\App\Http\Controllers\KuisAttemptController::class, 'submit']);
     
     // Create/Update/Delete hanya untuk GURU & ADMIN
     Route::middleware(['role:admin,guru'])->group(function () {
         Route::post('/kuis', [KuisController::class, 'store']);
         Route::put('/kuis/{id}', [KuisController::class, 'update']);
         Route::delete('/kuis/{id}', [KuisController::class, 'destroy']);
+        Route::post('/kuis/{id}/import-soal', [KuisController::class, 'importSoal']);
         Route::post('/kuis/{id}/soal-image', [KuisController::class, 'uploadSoalImage']);
         Route::get('/kuis/{id}/nilai', [KuisController::class, 'getNilai']);
+        Route::post('/kuis/{kuisId}/attempts/{attemptId}/approve-retake', [\App\Http\Controllers\KuisAttemptController::class, 'approveRetake']);
     });
 
     // ===== MATERI ROUTES =====
@@ -87,6 +103,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/materi', [MateriController::class, 'index']);
     Route::get('/materi/{id}', [MateriController::class, 'show']);
     Route::get('/materi/{id}/download', [MateriController::class, 'download']);
+
+    // Tugas materi (individual submission)
+    Route::middleware(['role:siswa'])->group(function () {
+        Route::post('/materi/{materiId}/submit', [MateriSubmissionController::class, 'submit']);
+        Route::get('/materi/{materiId}/submission', [MateriSubmissionController::class, 'getMine']);
+    });
+    Route::middleware(['role:admin,guru'])->group(function () {
+        Route::get('/materi/{materiId}/submissions', [MateriSubmissionController::class, 'getByMateri']);
+        Route::put('/materi/submissions/{submissionId}/nilai', [MateriSubmissionController::class, 'nilai']);
+    });
+    Route::get('/materi/submissions/{submissionId}/download', [MateriSubmissionController::class, 'download']);
     
     // Create/Update/Delete hanya untuk GURU & ADMIN
     Route::middleware(['role:admin,guru'])->group(function () {
@@ -99,10 +126,25 @@ Route::middleware('auth:sanctum')->group(function () {
     // Semua role boleh READ PBL (siswa dibatasi di controller: hanya Aktif & sesuai kelas/jurusan)
     Route::get('/pbl', [PBLController::class, 'index']);
     Route::get('/pbl/{id}', [PBLController::class, 'show']);
+    Route::get('/pbl/{id}/leaderboard', [PBLController::class, 'leaderboard']);
     Route::get('/pbl/{id}/sintaks', [PBLController::class, 'getSintaks']);
+    Route::get('/pbl/{id}/kelompok', [PBLController::class, 'getKelompok']); // Siswa perlu akses ini
+    Route::get('/pbl/{pblId}/kelompok/{kelompokId}/jobdesk', [PBLJobdeskController::class, 'show']);
+    // Nilai individu per anggota kelompok (siswa boleh baca nilainya sendiri; aturan di controller)
+    Route::get('/pbl/{pblId}/kelompok/{kelompokId}/nilai-individu', [PBLNilaiIndividuController::class, 'show']);
 
     // Siswa boleh submit PBL
     Route::post('/pbl/{id}/submit', [PBLController::class, 'submit']);
+    
+    // ===== PBL PROGRESS ROUTES (per sintaks/tahapan) =====
+    // Semua role bisa lihat progress
+    Route::get('/pbl/{pblId}/progress', [PBLProgressController::class, 'index']);
+    Route::get('/pbl/{pblId}/sintaks/{sintaksId}/progress', [PBLProgressController::class, 'show']);
+    Route::get('/pbl/{pblId}/sintaks/{sintaksId}/kontribusi', [PBLKontribusiController::class, 'getMine']);
+    // Siswa submit progress per sintaks
+    Route::post('/pbl/{pblId}/sintaks/{sintaksId}/progress', [PBLProgressController::class, 'store']);
+    Route::post('/pbl/{pblId}/sintaks/{sintaksId}/kontribusi', [PBLKontribusiController::class, 'storeMine']);
+    Route::delete('/pbl/{pblId}/sintaks/{sintaksId}/progress', [PBLProgressController::class, 'destroy']);
     
     // CRUD PBL hanya untuk GURU & ADMIN
     Route::middleware(['role:admin,guru'])->group(function () {
@@ -115,11 +157,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/pbl/{id}/sintaks/{sintaksId}', [PBLController::class, 'updateSintaks']);
         Route::delete('/pbl/{id}/sintaks/{sintaksId}', [PBLController::class, 'destroySintaks']);
         
-        // Kelompok management
-        Route::get('/pbl/{id}/kelompok', [PBLController::class, 'getKelompok']);
+        // Kelompok management (create/update/delete - guru/admin only)
         Route::post('/pbl/{id}/kelompok', [PBLController::class, 'createKelompok']);
         Route::put('/pbl/{id}/kelompok/{kelompokId}', [PBLController::class, 'updateKelompok']);
         Route::delete('/pbl/{id}/kelompok/{kelompokId}', [PBLController::class, 'deleteKelompok']);
+        Route::put('/pbl/{pblId}/kelompok/{kelompokId}/jobdesk', [PBLJobdeskController::class, 'update']);
+        Route::get('/pbl/{pblId}/kelompok/{kelompokId}/kontribusi', [PBLKontribusiController::class, 'indexByKelompok']);
+
+        // Nilai individu per anggota kelompok (update khusus guru/admin)
+        Route::put('/pbl/{pblId}/kelompok/{kelompokId}/nilai-individu', [PBLNilaiIndividuController::class, 'update']);
         
         // Get submissions & nilai
         Route::get('/pbl/{id}/submissions', [PBLController::class, 'getSubmissions']);
@@ -130,6 +176,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Siswa lihat nilai sendiri, guru bisa lihat semua & filter by kelas
     Route::get('/nilai', [NilaiController::class, 'index']);
     Route::middleware(['role:admin,guru'])->group(function () {
+        Route::get('/nilai/export', [NilaiController::class, 'exportExcel']);
         Route::get('/nilai/kelas/{kelas}', [NilaiController::class, 'getByKelas']);
     });
 

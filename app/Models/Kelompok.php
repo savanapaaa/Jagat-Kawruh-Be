@@ -17,11 +17,16 @@ class Kelompok extends Model
         'id',
         'pbl_id',
         'nama_kelompok',
+        'studi_kasus',
+        'jobdesk',
+        'nilai_individu',
         'anggota'
     ];
 
     protected $casts = [
         'anggota' => 'array',
+        'jobdesk' => 'array',
+        'nilai_individu' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
