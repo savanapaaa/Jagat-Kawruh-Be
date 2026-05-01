@@ -66,6 +66,8 @@ class MateriController extends Controller
                 return [
                     'id' => $m->id,
                     'judul' => $m->judul,
+                    'pesan_pembelajaran' => $m->pesan_pembelajaran,
+                    'link_video' => $m->link_video,
                     'deskripsi' => $m->deskripsi,
                     // Legacy field (array of tingkat) - for backward compat
                     'kelas' => $m->kelas,
@@ -79,6 +81,7 @@ class MateriController extends Controller
                     'file_name' => $m->file_name,
                     'file_size' => $m->file_size,
                     'status' => $m->status,
+                    'tugas_enabled' => (bool) $m->tugas_enabled,
                     'created_at' => $m->created_at
                 ];
             });
@@ -105,19 +108,24 @@ class MateriController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'judul' => 'required|string|max:255',
+                'pesan_pembelajaran' => 'nullable|string',
+                'link_video' => 'nullable|url|max:2048',
                 'deskripsi' => 'nullable|string',
-                'kelas' => 'sometimes', // Legacy: array of tingkat (X, XI, XII)
-                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas' => 'sometimes', // Legacy: array of tingkat (X, XI, XII) - opsional
+                'kelas_ids' => 'required|array|min:1', // New: array of kelas IDs - WAJIB
                 'kelas_ids.*' => 'integer|exists:kelas,id',
                 // Optional (FE form doesn't always send it)
                 'jurusan_id' => 'nullable|exists:jurusans,id',
                 // Accept FE label "Dipublikasikan" but persist as DB enum value "Published"
                 'status' => 'sometimes|in:Draft,Published,Archived,Dipublikasikan',
-                'file' => 'nullable|file|mimes:pdf|max:10240' // Max 10MB
+                'tugas_enabled' => 'sometimes|boolean',
+                'file' => 'nullable|file|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,zip,rar,jpg,jpeg,png,webp,mp4|max:51200' // Max 50MB
             ], [
                 'judul.required' => 'Judul materi wajib diisi',
-                'file.mimes' => 'File harus berformat PDF',
-                'file.max' => 'File maksimal 10MB'
+                'kelas_ids.required' => 'Kelas wajib dipilih (kelas_ids)',
+                'kelas_ids.min' => 'Minimal pilih 1 kelas',
+                'file.mimes' => 'Format file tidak didukung',
+                'file.max' => 'File maksimal 50MB'
             ]);
 
             if ($validator->fails()) {
@@ -128,7 +136,27 @@ class MateriController extends Controller
                 ], 422);
             }
 
-            $kelas = $request->has('kelas') ? $this->normalizeKelas($request->kelas) : [];
+            // Require at least one: file upload OR link video
+            if (!$request->hasFile('file') && !$request->filled('link_video')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => [
+                        'file' => ['Wajib upload file atau isi link video.'],
+                        'link_video' => ['Wajib upload file atau isi link video.'],
+                    ],
+                ], 422);
+            }
+
+            // Buat array kelas legacy dari kelas_ids untuk backward compat
+            $kelas = [];
+            if ($request->has('kelas_ids') && is_array($request->kelas_ids)) {
+                $kelasData = \App\Models\Kelas::whereIn('id', $request->kelas_ids)->pluck('tingkat')->unique()->values()->toArray();
+                $kelas = $kelasData;
+            } elseif ($request->has('kelas')) {
+                $kelas = $this->normalizeKelas($request->kelas);
+            }
+            
             $status = $this->normalizeStatus($request->status ?? 'Draft');
 
             // Handle file upload if present
@@ -149,6 +177,8 @@ class MateriController extends Controller
 
             $materi = Materi::create([
                 'judul' => $request->judul,
+                'pesan_pembelajaran' => $request->input('pesan_pembelajaran'),
+                'link_video' => $request->input('link_video'),
                 'deskripsi' => $request->deskripsi,
                 'kelas' => $kelas,
                 'jurusan_id' => $request->jurusan_id,
@@ -156,10 +186,11 @@ class MateriController extends Controller
                 'file_path' => $filePath,
                 'file_size' => $fileSize,
                 'status' => $status,
+                'tugas_enabled' => $request->boolean('tugas_enabled', false),
                 'created_by' => auth()->id()
             ]);
 
-            // Sync kelas via pivot table
+            // Sync kelas via pivot table (WAJIB ada kelas_ids)
             if ($request->has('kelas_ids') && is_array($request->kelas_ids)) {
                 $materi->kelasRelation()->sync($request->kelas_ids);
             }
@@ -173,6 +204,8 @@ class MateriController extends Controller
                 'data' => [
                     'id' => $materi->id,
                     'judul' => $materi->judul,
+                    'pesan_pembelajaran' => $materi->pesan_pembelajaran,
+                    'link_video' => $materi->link_video,
                     'kelas' => $materi->kelas,
                     'kelas_list' => $materi->kelasRelation->map(fn($k) => [
                         'id' => $k->id,
@@ -184,6 +217,7 @@ class MateriController extends Controller
                     'file_name' => $materi->file_name,
                     'file_size' => $materi->file_size,
                     'status' => $materi->status,
+                    'tugas_enabled' => (bool) $materi->tugas_enabled,
                     'created_at' => $materi->created_at
                 ]
             ], 201);
@@ -203,6 +237,7 @@ class MateriController extends Controller
     public function show(string $id)
     {
         try {
+            $user = auth()->user();
             $materi = Materi::with('kelasRelation:id,nama,tingkat')->find($id);
 
             if (!$materi) {
@@ -212,11 +247,30 @@ class MateriController extends Controller
                 ], 404);
             }
 
+            // Siswa hanya bisa lihat materi yang dipublikasikan & sesuai kelas_id
+            if ($user && $user->role === 'siswa') {
+                if (!in_array($materi->status, ['Published', 'Dipublikasikan'], true)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Materi tidak ditemukan'
+                    ], 404);
+                }
+
+                if ($user->kelas_id && !$materi->kelasRelation->contains('id', $user->kelas_id)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Materi tidak ditemukan'
+                    ], 404);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'id' => $materi->id,
                     'judul' => $materi->judul,
+                    'pesan_pembelajaran' => $materi->pesan_pembelajaran,
+                    'link_video' => $materi->link_video,
                     'deskripsi' => $materi->deskripsi,
                     'kelas' => $materi->kelas,
                     'kelas_list' => $materi->kelasRelation->map(fn($k) => [
@@ -228,6 +282,7 @@ class MateriController extends Controller
                     'file_name' => $materi->file_name,
                     'file_size' => $materi->file_size,
                     'status' => $materi->status,
+                    'tugas_enabled' => (bool) $materi->tugas_enabled,
                     'created_at' => $materi->created_at
                 ]
             ], 200);
@@ -258,16 +313,19 @@ class MateriController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'judul' => 'sometimes|string|max:255',
+                'pesan_pembelajaran' => 'nullable|string',
+                'link_video' => 'nullable|url|max:2048',
                 'deskripsi' => 'nullable|string',
-                'kelas' => 'sometimes', // Legacy: array of tingkat
-                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas' => 'sometimes', // Legacy: array of tingkat - opsional
+                'kelas_ids' => 'sometimes|array|min:1', // New: array of kelas IDs
                 'kelas_ids.*' => 'integer|exists:kelas,id',
                 'jurusan_id' => 'sometimes|exists:jurusans,id',
                 'status' => 'sometimes|in:Draft,Published,Archived,Dipublikasikan',
-                'file' => 'nullable|file|mimes:pdf|max:10240'
+                'tugas_enabled' => 'sometimes|boolean',
+                'file' => 'nullable|file|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,zip,rar,jpg,jpeg,png,webp,mp4|max:51200'
             ], [
-                'file.mimes' => 'File harus berformat PDF',
-                'file.max' => 'File maksimal 10MB'
+                'file.mimes' => 'Format file tidak didukung',
+                'file.max' => 'File maksimal 50MB'
             ]);
 
             if ($validator->fails()) {
@@ -280,11 +338,26 @@ class MateriController extends Controller
 
             $updateData = [];
             if ($request->has('judul')) $updateData['judul'] = $request->judul;
+            // Use exists() so empty string can intentionally clear the field
+            if ($request->exists('pesan_pembelajaran')) $updateData['pesan_pembelajaran'] = $request->input('pesan_pembelajaran');
+            // Use exists() so empty string can intentionally clear the field
+            if ($request->exists('link_video')) {
+                $linkVideo = $request->input('link_video');
+                if (is_string($linkVideo) && trim($linkVideo) === '') {
+                    $linkVideo = null;
+                }
+                $updateData['link_video'] = $linkVideo;
+            }
             if ($request->has('deskripsi')) $updateData['deskripsi'] = $request->deskripsi;
             if ($request->has('jurusan_id')) $updateData['jurusan_id'] = $request->jurusan_id;
             if ($request->has('status')) $updateData['status'] = $this->normalizeStatus($request->status);
+            if ($request->has('tugas_enabled')) $updateData['tugas_enabled'] = $request->boolean('tugas_enabled');
             
-            if ($request->has('kelas')) {
+            // Update kelas legacy dari kelas_ids jika ada
+            if ($request->has('kelas_ids') && is_array($request->kelas_ids)) {
+                $kelasData = \App\Models\Kelas::whereIn('id', $request->kelas_ids)->pluck('tingkat')->unique()->values()->toArray();
+                $updateData['kelas'] = $kelasData;
+            } elseif ($request->has('kelas')) {
                 $updateData['kelas'] = $this->normalizeKelas($request->kelas);
             }
 
@@ -306,6 +379,21 @@ class MateriController extends Controller
                 $updateData['file_size'] = $file->getSize();
             }
 
+            // Optional safety: don't allow materi end up with no file & no link
+            $willHaveFile = $request->hasFile('file') || !empty($materi->file_path);
+            $newLinkVideoValue = array_key_exists('link_video', $updateData) ? $updateData['link_video'] : $materi->link_video;
+            $willHaveLink = !empty($newLinkVideoValue);
+            if (!$willHaveFile && !$willHaveLink) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => [
+                        'file' => ['Wajib upload file atau isi link video.'],
+                        'link_video' => ['Wajib upload file atau isi link video.'],
+                    ],
+                ], 422);
+            }
+
             $materi->update($updateData);
 
             // Sync kelas via pivot table jika ada kelas_ids
@@ -322,6 +410,8 @@ class MateriController extends Controller
                 'data' => [
                     'id' => $materi->id,
                     'judul' => $materi->judul,
+                    'pesan_pembelajaran' => $materi->pesan_pembelajaran,
+                    'link_video' => $materi->link_video,
                     'kelas' => $materi->kelas,
                     'kelas_list' => $materi->kelasRelation->map(fn($k) => [
                         'id' => $k->id,
@@ -332,6 +422,7 @@ class MateriController extends Controller
                     'file_name' => $materi->file_name,
                     'file_size' => $materi->file_size,
                     'status' => $materi->status,
+                    'tugas_enabled' => (bool) $materi->tugas_enabled,
                     'created_at' => $materi->created_at
                 ]
             ], 200);
@@ -383,13 +474,31 @@ class MateriController extends Controller
     public function download(string $id)
     {
         try {
-            $materi = Materi::find($id);
+            $user = auth()->user();
+            $materi = Materi::with('kelasRelation:id')->find($id);
 
             if (!$materi) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Materi tidak ditemukan'
                 ], 404);
+            }
+
+            // Siswa hanya bisa download materi yang dipublikasikan & sesuai kelas_id
+            if ($user && $user->role === 'siswa') {
+                if (!in_array($materi->status, ['Published', 'Dipublikasikan'], true)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Materi tidak ditemukan'
+                    ], 404);
+                }
+
+                if ($user->kelas_id && !$materi->kelasRelation->contains('id', $user->kelas_id)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Materi tidak ditemukan'
+                    ], 404);
+                }
             }
 
             if (!$materi->file_path || !Storage::disk('public')->exists($materi->file_path)) {
@@ -401,7 +510,11 @@ class MateriController extends Controller
 
             $absolutePath = Storage::disk('public')->path($materi->file_path);
             $downloadName = $materi->file_name ?: basename($materi->file_path);
-            return response()->download($absolutePath, $downloadName);
+            $detectedMime = @mime_content_type($absolutePath);
+            $mimeType = is_string($detectedMime) && $detectedMime !== '' ? $detectedMime : 'application/octet-stream';
+            return response()->download($absolutePath, $downloadName, [
+                'Content-Type' => $mimeType,
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

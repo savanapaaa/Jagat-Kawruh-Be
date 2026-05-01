@@ -26,7 +26,15 @@ class SiswaController extends Controller
             
             // Filter by kelas (tingkat - backward compatibility)
             if ($request->has('kelas')) {
-                $query->where('kelas', $request->kelas);
+                $kelas = trim((string) $request->kelas);
+                if ($kelas !== '') {
+                    $query->where(function($q) use ($kelas) {
+                        $q->where('kelas', $kelas)
+                          ->orWhereHas('kelasRelation', function($kelasQ) use ($kelas) {
+                              $kelasQ->where('nama', $kelas);
+                          });
+                    });
+                }
             }
 
             // Filter by jurusan
@@ -127,7 +135,7 @@ class SiswaController extends Controller
             ]);
 
             $validator = Validator::make($request->all(), [
-                'nis' => 'required|string|unique:users,nis',
+                'nis' => ['required', 'regex:/^[0-9]+$/', 'unique:users,nis'],
                 'nama' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|string|min:8',

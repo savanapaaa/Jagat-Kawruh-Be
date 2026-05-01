@@ -21,7 +21,9 @@ class ProfileController extends Controller
             'data' => [
                 'id' => $user->id,
                 'email' => $user->email,
+                // Return both keys for compatibility with older/newer clients/docs
                 'nama' => $user->nama,
+                'name' => $user->nama,
                 'role' => $user->role,
                 'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                 'kelas' => $user->kelas,
@@ -42,12 +44,19 @@ class ProfileController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nama' => 'sometimes|string|max:255',
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
             'avatar' => 'nullable|image|mimes:jpeg,jpg,png|max:2048', // max 2MB
             'kelas' => 'sometimes|in:X,XI,XII',
             'jurusan_id' => 'sometimes|exists:jurusans,id',
         ], [
             'nama.string' => 'Nama harus berupa teks',
             'nama.max' => 'Nama maksimal 255 karakter',
+            'name.string' => 'Nama harus berupa teks',
+            'name.max' => 'Nama maksimal 255 karakter',
+            'email.email' => 'Email tidak valid',
+            'email.max' => 'Email maksimal 255 karakter',
+            'email.unique' => 'Email sudah digunakan',
             'avatar.image' => 'Avatar harus berupa gambar',
             'avatar.mimes' => 'Avatar harus berformat jpeg, jpg, atau png',
             'avatar.max' => 'Avatar maksimal 2MB',
@@ -63,9 +72,21 @@ class ProfileController extends Controller
             ], 400);
         }
 
-        // Update nama jika ada
+        // Update nama jika ada (support both 'nama' and 'name')
         if ($request->has('nama')) {
-            $user->nama = $request->nama;
+            $user->nama = $request->input('nama');
+        } elseif ($request->has('name')) {
+            $user->nama = $request->input('name');
+        }
+
+        // Update email jika ada
+        if ($request->has('email')) {
+            $newEmail = $request->input('email');
+            if ($newEmail !== $user->email) {
+                $user->email = $newEmail;
+                // Optional behavior: require re-verification when email changes
+                $user->email_verified_at = null;
+            }
         }
 
         // Update kelas jika ada (untuk siswa)
@@ -98,7 +119,9 @@ class ProfileController extends Controller
             'data' => [
                 'id' => $user->id,
                 'email' => $user->email,
+                // Return both keys for compatibility with older/newer clients/docs
                 'nama' => $user->nama,
+                'name' => $user->nama,
                 'role' => $user->role,
                 'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                 'kelas' => $user->kelas,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PBL;
 use App\Models\Kelompok;
 use App\Models\PBLSubmission;
+use App\Models\PBLProgress;
 use App\Models\User;
 use App\Models\PBLSintaks;
 use Illuminate\Http\Request;
@@ -25,11 +26,20 @@ class PBLController extends Controller
             return false;
         }
 
-        if (!empty($user->kelas) && $project->kelas !== $user->kelas) {
+        // Cek akses via pivot table kelasRelation (many-to-many)
+        if ($user->kelas_id) {
+            $kelasIds = $project->kelasRelation->pluck('id')->toArray();
+            if (!empty($kelasIds) && !in_array($user->kelas_id, $kelasIds)) {
+                return false;
+            }
+        }
+
+        // Legacy check: kelas string (X/XI/XII)
+        if (empty($project->kelasRelation->count()) && !empty($user->kelas) && $project->kelas !== $user->kelas) {
             return false;
         }
 
-        if (!empty($user->jurusan_id) && $project->jurusan_id !== $user->jurusan_id) {
+        if (!empty($user->jurusan_id) && $project->jurusan_id && $project->jurusan_id !== $user->jurusan_id) {
             return false;
         }
 
@@ -68,15 +78,66 @@ class PBLController extends Controller
     }
 
     /**
+     * Access rule khusus leaderboard untuk siswa.
+     * Tidak mensyaratkan status project aktif, cukup terhubung via kelas/jurusan
+     * atau anggota kelompok pada project tersebut.
+     */
+    private function siswaCanAccessLeaderboard($user, PBL $project): bool
+    {
+        if (!$user || $user->role !== 'siswa') {
+            return true;
+        }
+
+        // Opsi aman: siswa anggota kelompok di project ini
+        $inKelompok = Kelompok::where('pbl_id', $project->id)
+            ->where(function ($q) use ($user) {
+                $q->whereJsonContains('anggota', $user->id)
+                    ->orWhereJsonContains('anggota', (string) $user->id)
+                    ->orWhereJsonContains('anggota', 'siswa-' . $user->id);
+            })
+            ->exists();
+
+        if ($inKelompok) {
+            return true;
+        }
+
+        // Opsi aman: project memang ditujukan ke kelas siswa
+        $kelasAllowed = true;
+        if ($user->kelas_id) {
+            $kelasIds = $project->kelasRelation->pluck('id')->toArray();
+            if (!empty($kelasIds)) {
+                $kelasAllowed = in_array($user->kelas_id, $kelasIds);
+            } elseif (!empty($project->kelas) && !empty($user->kelas)) {
+                // Fallback legacy saat pivot belum diisi
+                if (is_array($project->kelas)) {
+                    $kelasAllowed = in_array($user->kelas, $project->kelas);
+                } else {
+                    $kelasAllowed = ((string) $project->kelas === (string) $user->kelas);
+                }
+            }
+        }
+
+        if (!$kelasAllowed) {
+            return false;
+        }
+
+        if (!empty($user->jurusan_id) && $project->jurusan_id && $project->jurusan_id !== $user->jurusan_id) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Display a listing of PBL projects
      * GET /api/pbl
-     * Query params: kelas, jurusan_id, status
+     * Query params: kelas, kelas_id, jurusan_id, status
      */
     public function index(Request $request)
     {
         try {
             $user = auth()->user();
-            $query = PBL::with('jurusan:id,nama', 'creator:id,name,email')
+            $query = PBL::with('jurusan:id,nama', 'creator:id,name,email', 'kelasRelation:id,nama,tingkat')
                 ->withCount('sintaks as jumlah_sintaks');
 
             // Guru: hanya lihat PBL yang dia buat (admin tetap lihat semua)
@@ -84,19 +145,38 @@ class PBLController extends Controller
                 $query->where('created_by', $user->id);
             }
 
-            // Siswa: hanya lihat PBL yang aktif & sesuai kelas/jurusan mereka.
+            // Siswa: hanya lihat PBL yang aktif & sesuai kelas mereka (via pivot)
             if ($user && $user->role === 'siswa') {
                 $query->where('status', 'Aktif');
-                if (!empty($user->kelas)) {
-                    $query->where('kelas', $user->kelas);
+                
+                // Filter by kelas_id via pivot table
+                if ($user->kelas_id) {
+                    $query->where(function($q) use ($user) {
+                        $q->whereHas('kelasRelation', function($subQ) use ($user) {
+                            $subQ->where('kelas.id', $user->kelas_id);
+                        })
+                        // Fallback: jika belum ada kelas di pivot, cek legacy kelas field
+                        ->orWhere(function($subQ) use ($user) {
+                            $subQ->doesntHave('kelasRelation');
+                            if ($user->kelas) {
+                                $subQ->where('kelas', $user->kelas);
+                            }
+                        });
+                    });
                 }
+                
                 if (!empty($user->jurusan_id)) {
                     $query->where('jurusan_id', $user->jurusan_id);
                 }
             }
 
-            // Filter by kelas
-            if ($request->has('kelas')) {
+            // Filter by kelas_id (via pivot)
+            if ($request->has('kelas_id')) {
+                $query->whereHas('kelasRelation', function($q) use ($request) {
+                    $q->where('kelas.id', $request->kelas_id);
+                });
+            } elseif ($request->has('kelas')) {
+                // Legacy: filter by kelas string
                 $query->where('kelas', $request->kelas);
             }
 
@@ -121,7 +201,13 @@ class PBLController extends Controller
                     'tujuan_pembelajaran' => $p->tujuan_pembelajaran,
                     'panduan' => $p->panduan,
                     'referensi' => $p->referensi,
-                    'kelas' => $p->kelas,
+                    'kelas' => $p->kelas, // Legacy field
+                    'kelas_list' => $p->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $p->kelasRelation->pluck('id'),
                     'jurusan_id' => $p->jurusan_id,
                     'jurusan' => $p->jurusan ? [
                         'id' => $p->jurusan->id,
@@ -153,10 +239,15 @@ class PBLController extends Controller
     /**
      * Store a newly created PBL project
      * POST /api/pbl
+     * 
+     * Supports kelas_ids (array of kelas IDs) for many-to-many relationship
      */
     public function store(Request $request)
     {
         try {
+            // Support kelas_ids (array) untuk many-to-many
+            $kelasIds = $request->input('kelas_ids', []);
+            
             // Normalize kelas: bisa terima kelas_id (integer) atau tingkat (X/XI/XII)
             $kelas = $request->input('kelas');
             $kelasId = $request->input('kelas_id');
@@ -168,12 +259,28 @@ class PBLController extends Controller
                 $kelas = null;
             }
             
-            // Jika ada kelas_id (ID dari tabel kelas), ambil data kelas
-            if ($kelasId) {
+            // Jika ada kelas_id tunggal, tambahkan ke kelas_ids
+            if ($kelasId && !in_array($kelasId, $kelasIds)) {
+                $kelasIds[] = $kelasId;
+            }
+            
+            // Jika ada kelas_ids, ambil data tingkat untuk legacy field
+            if (!empty($kelasIds)) {
+                $kelasData = \App\Models\Kelas::whereIn('id', $kelasIds)->get();
+                if ($kelasData->isNotEmpty()) {
+                    // Ambil tingkat unik untuk legacy field
+                    $tingkatList = $kelasData->pluck('tingkat')->unique()->values()->toArray();
+                    $kelas = implode(',', $tingkatList);
+                    
+                    // Jika jurusan_id belum diset, ambil dari kelas pertama
+                    if (!$jurusanId && $kelasData->first()->jurusan_id) {
+                        $jurusanId = $kelasData->first()->jurusan_id;
+                    }
+                }
+            } elseif ($kelasId) {
                 $kelasData = \App\Models\Kelas::find($kelasId);
                 if ($kelasData) {
-                    $kelas = $kelasData->tingkat; // X, XI, atau XII
-                    // Jika jurusan_id belum diset, ambil dari kelas
+                    $kelas = $kelasData->tingkat;
                     if (!$jurusanId) {
                         $jurusanId = $kelasData->jurusan_id;
                     }
@@ -181,14 +288,14 @@ class PBLController extends Controller
             }
             
             // Jika kelas masih berupa nama penuh (misal "X RPL 1"), extract tingkatnya
-            if ($kelas && !in_array($kelas, ['X', 'XI', 'XII'])) {
+            if ($kelas && !in_array($kelas, ['X', 'XI', 'XII']) && !str_contains($kelas, ',')) {
                 if (preg_match('/^(X|XI|XII)/i', $kelas, $matches)) {
                     $kelas = strtoupper($matches[1]);
                 }
             }
             
             // Normalize jurusan_id: bisa terima nama (RPL, TKJ) atau ID (JUR-1)
-            if ($jurusanId && !str_starts_with((string)$jurusanId, 'JUR-')) {
+            if ($jurusanId && !str_starts_with((string)$jurusanId, 'JUR-') && !is_numeric($jurusanId)) {
                 // Cari berdasarkan nama jurusan
                 $jurusan = \App\Models\Jurusan::where('nama', $jurusanId)->first();
                 if ($jurusan) {
@@ -198,7 +305,7 @@ class PBLController extends Controller
             
             // Merge normalized values
             $request->merge([
-                'kelas' => $kelas,
+                'kelas' => $kelas ?: 'X', // Default X jika tidak ada
                 'jurusan_id' => $jurusanId,
             ]);
             
@@ -208,8 +315,10 @@ class PBLController extends Controller
                 'tujuan_pembelajaran' => 'nullable|string',
                 'panduan' => 'nullable|string',
                 'referensi' => 'nullable|string',
-                'kelas' => 'required|in:X,XI,XII',
-                'jurusan_id' => 'required|exists:jurusans,id',
+                'kelas' => 'required|string', // Allow comma-separated for multiple tingkat
+                'kelas_ids' => 'nullable|array',
+                'kelas_ids.*' => 'integer|exists:kelas,id',
+                'jurusan_id' => 'nullable|exists:jurusans,id',
                 'status' => 'sometimes|in:Draft,Aktif,Selesai',
                 'deadline' => 'nullable|date',
                 'sintaks' => 'nullable|array',
@@ -245,6 +354,11 @@ class PBLController extends Controller
                 'created_by' => auth()->id()
             ]);
 
+            // Sync kelas_ids ke pivot table
+            if (!empty($kelasIds)) {
+                $project->kelasRelation()->sync($kelasIds);
+            }
+
             $steps = null;
             if ($request->filled('sintaks') && is_array($request->sintaks) && count($request->sintaks) > 0) {
                 $steps = $request->sintaks;
@@ -271,12 +385,21 @@ class PBLController extends Controller
 
             DB::commit();
 
-            $project->load('jurusan:id,nama', 'sintaks');
+            $project->load('jurusan:id,nama', 'sintaks', 'kelasRelation:id,nama,tingkat');
+            
+            // Format response dengan kelas_list
+            $responseData = $project->toArray();
+            $responseData['kelas_list'] = $project->kelasRelation->map(fn($k) => [
+                'id' => $k->id,
+                'nama' => $k->nama,
+                'tingkat' => $k->tingkat
+            ]);
+            $responseData['kelas_ids'] = $project->kelasRelation->pluck('id');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Project PBL berhasil dibuat',
-                'data' => $project
+                'data' => $responseData
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -295,7 +418,7 @@ class PBLController extends Controller
     public function show(string $id)
     {
         try {
-            $project = PBL::with('jurusan:id,nama', 'creator:id,name,email', 'sintaks')
+            $project = PBL::with('jurusan:id,nama', 'creator:id,name,email', 'sintaks', 'kelasRelation:id,nama,tingkat')
                 ->withCount('sintaks as jumlah_sintaks')
                 ->find($id);
 
@@ -307,16 +430,25 @@ class PBLController extends Controller
             }
 
             $user = auth()->user();
-            if (!$this->siswaCanAccessProject($user, $project)) {
+            if (!$this->siswaCanAccessLeaderboard($user, $project)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Akses ditolak'
+                    'message' => 'Akses dibatasi untuk leaderboard project ini'
                 ], 403);
             }
 
+            // Format response dengan kelas_list
+            $responseData = $project->toArray();
+            $responseData['kelas_list'] = $project->kelasRelation->map(fn($k) => [
+                'id' => $k->id,
+                'nama' => $k->nama,
+                'tingkat' => $k->tingkat
+            ]);
+            $responseData['kelas_ids'] = $project->kelasRelation->pluck('id');
+
             return response()->json([
                 'success' => true,
-                'data' => $project
+                'data' => $responseData
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -330,6 +462,8 @@ class PBLController extends Controller
     /**
      * Update the specified PBL project
      * PUT /api/pbl/{id}
+     * 
+     * Supports kelas_ids (array of kelas IDs) for many-to-many relationship
      */
     public function update(Request $request, string $id)
     {
@@ -343,13 +477,29 @@ class PBLController extends Controller
                 ], 404);
             }
 
+            // Handle kelas_ids untuk many-to-many
+            $kelasIds = $request->input('kelas_ids');
+            $kelas = $request->input('kelas');
+            
+            // Jika ada kelas_ids, update legacy kelas field
+            if (is_array($kelasIds) && !empty($kelasIds)) {
+                $kelasData = \App\Models\Kelas::whereIn('id', $kelasIds)->get();
+                if ($kelasData->isNotEmpty()) {
+                    $tingkatList = $kelasData->pluck('tingkat')->unique()->values()->toArray();
+                    $kelas = implode(',', $tingkatList);
+                    $request->merge(['kelas' => $kelas]);
+                }
+            }
+
             $validator = Validator::make($request->all(), [
                 'judul' => 'sometimes|string|max:255',
                 'masalah' => 'sometimes|string',
                 'tujuan_pembelajaran' => 'sometimes|string',
                 'panduan' => 'sometimes|string',
                 'referensi' => 'nullable|string',
-                'kelas' => 'sometimes|in:X,XI,XII',
+                'kelas' => 'sometimes|string', // Allow comma-separated
+                'kelas_ids' => 'nullable|array',
+                'kelas_ids.*' => 'integer|exists:kelas,id',
                 'jurusan_id' => 'sometimes|exists:jurusans,id',
                 'status' => 'sometimes|in:Draft,Aktif,Selesai',
                 'deadline' => 'nullable|date',
@@ -375,6 +525,11 @@ class PBLController extends Controller
                 'referensi', 'kelas', 'jurusan_id', 'status', 'deadline'
             ]));
 
+            // Sync kelas_ids ke pivot table jika dikirim
+            if ($request->has('kelas_ids')) {
+                $project->kelasRelation()->sync($kelasIds ?? []);
+            }
+
             // If FE sends sintaks array, replace all steps with the provided list.
             if ($request->has('sintaks') && is_array($request->sintaks)) {
                 PBLSintaks::where('pbl_id', $project->id)->delete();
@@ -396,12 +551,21 @@ class PBLController extends Controller
 
             DB::commit();
 
-            $project->load('jurusan:id,nama', 'sintaks');
+            $project->load('jurusan:id,nama', 'sintaks', 'kelasRelation:id,nama,tingkat');
+            
+            // Format response dengan kelas_list
+            $responseData = $project->toArray();
+            $responseData['kelas_list'] = $project->kelasRelation->map(fn($k) => [
+                'id' => $k->id,
+                'nama' => $k->nama,
+                'tingkat' => $k->tingkat
+            ]);
+            $responseData['kelas_ids'] = $project->kelasRelation->pluck('id');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Project PBL berhasil diupdate',
-                'data' => $project
+                'data' => $responseData
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -430,10 +594,10 @@ class PBLController extends Controller
             }
 
             $user = auth()->user();
-            if (!$this->siswaCanAccessProject($user, $project)) {
+            if (!$this->siswaCanAccessLeaderboard($user, $project)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Akses ditolak'
+                    'message' => 'Akses dibatasi untuk leaderboard project ini'
                 ], 403);
             }
 
@@ -650,12 +814,17 @@ class PBLController extends Controller
             $kelompok = Kelompok::where('pbl_id', $id)->get();
 
             $data = $kelompok->map(function($k) {
+                if (!$k instanceof Kelompok) {
+                    return null;
+                }
+
                 $anggotaDetails = $k->anggotaDetails();
                 
                 return [
                     'id' => $k->id,
                     'pbl_id' => $k->pbl_id,
                     'nama_kelompok' => $k->nama_kelompok,
+                    'studi_kasus' => $k->studi_kasus,
                     'anggota' => $k->anggota,
                     'anggota_details' => $anggotaDetails->map(function($siswa) {
                         return [
@@ -666,7 +835,7 @@ class PBLController extends Controller
                     }),
                     'created_at' => $k->created_at
                 ];
-            });
+            })->filter()->values();
 
             return response()->json([
                 'success' => true,
@@ -711,6 +880,7 @@ class PBLController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'nama_kelompok' => 'required|string|max:255',
+                'studi_kasus' => 'nullable|string',
                 'anggota' => 'required|array|min:1',
             ]);
 
@@ -725,6 +895,7 @@ class PBLController extends Controller
             $kelompok = Kelompok::create([
                 'pbl_id' => $id,
                 'nama_kelompok' => $request->nama_kelompok,
+                'studi_kasus' => $request->studi_kasus,
                 'anggota' => $request->anggota
             ]);
 
@@ -783,6 +954,7 @@ class PBLController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'nama_kelompok' => 'sometimes|required|string|max:255',
+                'studi_kasus' => 'nullable|string',
                 'anggota' => 'sometimes|required|array|min:1',
             ]);
 
@@ -796,6 +968,9 @@ class PBLController extends Controller
 
             if ($request->has('nama_kelompok')) {
                 $kelompok->nama_kelompok = $request->nama_kelompok;
+            }
+            if ($request->has('studi_kasus')) {
+                $kelompok->studi_kasus = $request->studi_kasus;
             }
             if ($request->has('anggota')) {
                 $kelompok->anggota = $request->anggota;
@@ -863,6 +1038,9 @@ class PBLController extends Controller
     public function submit(Request $request, string $id)
     {
         try {
+            // Get authenticated user
+            $user = auth()->user();
+
             $project = PBL::find($id);
 
             if (!$project) {
@@ -872,9 +1050,17 @@ class PBLController extends Controller
                 ], 404);
             }
 
+            // Check authorization: siswa harus punya akses ke project
+            if (!$this->siswaCanAccessProject($user, $project)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda belum terdaftar di kelompok manapun untuk project ini'
+                ], 403);
+            }
+
             $validator = Validator::make($request->all(), [
                 'kelompok_id' => 'required|exists:kelompoks,id',
-                'file' => 'required|file|mimes:zip,rar,7z|max:51200', // Max 50MB
+                'file' => 'required|file|mimes:pdf,doc,docx,zip,rar,7z,ppt,pptx,xls,xlsx,jpg,jpeg,png|max:51200', // Max 50MB
                 'catatan' => 'nullable|string'
             ]);
 
@@ -884,6 +1070,38 @@ class PBLController extends Controller
                     'message' => 'Validasi gagal',
                     'errors' => $validator->errors()
                 ], 422);
+            }
+
+            // Verify kelompok exists in this project
+            $kelompok = Kelompok::where('id', $request->kelompok_id)
+                ->where('pbl_id', $id)
+                ->first();
+
+            if (!$kelompok) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kelompok tidak ditemukan dalam project ini'
+                ], 404);
+            }
+
+            // Check if siswa is member of this kelompok
+            $isMember = false;
+            if (is_array($kelompok->anggota)) {
+                foreach ($kelompok->anggota as $anggota) {
+                    // Support multiple formats: 'siswa-123', '123', or direct ID
+                    $anggotaId = str_replace('siswa-', '', $anggota);
+                    if ($anggotaId == $user->id || $anggota == $user->id) {
+                        $isMember = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$isMember) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda bukan bagian dari kelompok ini'
+                ], 403);
             }
 
             // Upload file
@@ -963,6 +1181,105 @@ class PBLController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data submission',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get leaderboard by project (safe read-only)
+     * GET /api/pbl/{id}/leaderboard
+     */
+    public function leaderboard(string $id)
+    {
+        try {
+            $project = PBL::with('kelasRelation:id')->find($id);
+
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project PBL tidak ditemukan'
+                ], 404);
+            }
+
+            $user = auth()->user();
+            if (!$this->siswaCanAccessProject($user, $project)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akses ditolak'
+                ], 403);
+            }
+
+            $kelompokList = Kelompok::where('pbl_id', $id)
+                ->with(['submissions' => function($q) use ($id) {
+                    $q->where('pbl_id', $id)
+                        ->select('id', 'pbl_id', 'kelompok_id', 'nilai', 'submitted_at')
+                        ->orderBy('submitted_at', 'desc');
+                }])
+                ->get();
+
+            $sintaksList = PBLSintaks::where('pbl_id', $id)
+                ->orderBy('urutan')
+                ->get(['id', 'urutan']);
+            $totalSintaks = $sintaksList->count();
+
+            $progressMapByKelompok = PBLProgress::where('pbl_id', $id)
+                ->get(['kelompok_id', 'sintaks_id', 'submitted_at'])
+                ->groupBy('kelompok_id')
+                ->map(function ($rows) {
+                    return $rows->keyBy('sintaks_id');
+                });
+
+            $data = $kelompokList->map(function($kelompok) use ($sintaksList, $totalSintaks, $progressMapByKelompok) {
+                $latestSubmission = $kelompok->submissions->first();
+                $progressBySintaks = $progressMapByKelompok->get($kelompok->id, collect());
+
+                $progress = $sintaksList->map(function ($sintaks) use ($progressBySintaks) {
+                    $progressRow = $progressBySintaks->get($sintaks->id);
+
+                    return [
+                        'urutan' => (int) $sintaks->urutan,
+                        'completed' => $progressRow !== null,
+                        'submitted_at' => $progressRow?->submitted_at,
+                    ];
+                })->values();
+
+                $completedSintaks = $progress->where('completed', true)->count();
+                $completionPercentage = $totalSintaks > 0
+                    ? (int) round(($completedSintaks / $totalSintaks) * 100)
+                    : 0;
+                $lastActivityAt = $progress
+                    ->filter(fn ($item) => $item['completed'] && !empty($item['submitted_at']))
+                    ->max('submitted_at');
+
+                return [
+                    'submission_id' => $latestSubmission?->id,
+                    'kelompok_id' => $kelompok->id,
+                    'kelompok' => [
+                        'id' => $kelompok->id,
+                        'nama_kelompok' => $kelompok->nama_kelompok,
+                    ],
+                    'completion_percentage' => $completionPercentage,
+                    'last_activity_at' => $lastActivityAt,
+                    'progress' => $progress,
+                    // Backward compatibility for FE lama
+                    'progress_percentage' => $completionPercentage,
+                    'completed_sintaks' => $completedSintaks,
+                    'total_sintaks' => $totalSintaks,
+                    'submitted_at' => $lastActivityAt,
+                    // Backward compatibility for FE lama yang masih baca field nilai
+                    'nilai' => $completionPercentage,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil leaderboard',
                 'error' => $e->getMessage()
             ], 500);
         }

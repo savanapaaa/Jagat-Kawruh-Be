@@ -59,11 +59,11 @@ class GuruController extends Controller
         }
 
         $validated = $request->validate([
-            'nip' => 'required|string|max:50|unique:users,nip',
+            'nip' => ['required', 'regex:/^[0-9]+$/', 'max:50', 'unique:users,nip'],
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8',
-            'jurusan_id' => 'required|string|exists:jurusans,id',
+            'jurusan_id' => 'nullable|string|exists:jurusans,id',
             'kelas_diampu' => 'nullable|array',
             'kelas_diampu.*' => 'integer|exists:kelas,id',
         ]);
@@ -74,7 +74,7 @@ class GuruController extends Controller
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => 'guru',
-            'jurusan_id' => $validated['jurusan_id'],
+            'jurusan_id' => $validated['jurusan_id'] ?? null,
             'kelas_diampu' => $validated['kelas_diampu'] ?? null,
             'is_active' => true,
         ]);

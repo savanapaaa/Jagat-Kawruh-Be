@@ -125,4 +125,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Kelas::class, 'kelas_id', 'id');
     }
+
+    public function materiSubmissions()
+    {
+        return $this->hasMany(MateriSubmission::class, 'siswa_id', 'id');
+    }
 }

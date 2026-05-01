@@ -4,15 +4,31 @@ namespace App\Http\Controllers;
 
 use App\Models\Kuis;
 use App\Models\Soal;
-use App\Models\HasilKuis;
+use App\Models\KuisAttempt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class KuisController extends Controller
 {
+    /**
+     * Normalize kuis ID - support both numeric ID (26) and full ID (kuis-26)
+     * Database stores as "kuis-XX" format
+     */
+    private function normalizeKuisId(string $kuisId): string
+    {
+        if (preg_match('/^kuis-\d+$/i', $kuisId)) {
+            return strtolower($kuisId);
+        }
+        if (preg_match('/^\d+$/', $kuisId)) {
+            return 'kuis-' . $kuisId;
+        }
+        return $kuisId;
+    }
+
     /**
      * Display a listing of kuis
      * GET /api/kuis
@@ -27,9 +43,11 @@ class KuisController extends Controller
             $query = Kuis::query()->withCount('soal as jumlah_soal')
                 ->with(['soal:id,kuis_id,urutan', 'kelasRelation:id,nama,tingkat'])
                 ->select('kuis.*')->selectSub(function ($q) {
-                    $q->from('hasil_kuis')
+                    // Count dari KuisAttempt (bukan hasil_kuis)
+                    $q->from('kuis_attempts')
                         ->selectRaw('COUNT(DISTINCT siswa_id)')
-                        ->whereColumn('hasil_kuis.kuis_id', 'kuis.id');
+                        ->whereIn('status', ['submitted', 'expired'])
+                        ->whereColumn('kuis_attempts.kuis_id', 'kuis.id');
                 }, 'total_peserta');
 
             // Guru hanya melihat kuis yang dia buat (admin tetap lihat semua)
@@ -72,7 +90,7 @@ class KuisController extends Controller
             $kuis = $query->orderBy('created_at', 'desc')->get();
 
             $data = $kuis->map(function($k) {
-                $jumlahSoal = (int) ($k->jumlah_soal ?? 0);
+                $jumlahSoal = $this->getDisplaySoalCount($k, (int) ($k->jumlah_soal ?? 0));
                 return [
                     'id' => $k->id,
                     'judul' => $k->judul,
@@ -86,6 +104,7 @@ class KuisController extends Controller
                     ]),
                     'kelas_ids' => $k->kelasRelation->pluck('id'),
                     'batas_waktu' => $k->batas_waktu,
+                    'draft_soal_count' => (int) ($k->draft_soal_count ?? 0),
                     'total_peserta' => (int) ($k->total_peserta ?? 0),
                     // Count fields (aliases for FE compatibility)
                     'jumlah_soal' => $jumlahSoal,
@@ -191,9 +210,9 @@ class KuisController extends Controller
 
             $validator = Validator::make($payload, [
                 'judul' => 'required|string|max:255',
-                'kelas' => 'sometimes|array', // Legacy: array of tingkat (X, XI, XII)
+                'kelas' => 'sometimes|array', // Legacy: array of tingkat (X, XI, XII) - opsional
                 'kelas.*' => 'in:X,XI,XII',
-                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas_ids' => 'required|array|min:1', // New: array of kelas IDs - WAJIB
                 'kelas_ids.*' => 'integer|exists:kelas,id',
                 // FE kadang belum mengirim batas_waktu saat create
                 'batas_waktu' => 'nullable|integer|min:1',
@@ -202,6 +221,8 @@ class KuisController extends Controller
                 'soal' => 'nullable|array',
             ], [
                 'judul.required' => 'Judul kuis wajib diisi',
+                'kelas_ids.required' => 'Kelas wajib dipilih (kelas_ids)',
+                'kelas_ids.min' => 'Minimal pilih 1 kelas',
                 'kelas.*.in' => 'Kelas harus salah satu dari: X, XI, XII',
                 'batas_waktu.integer' => 'Batas waktu harus berupa angka',
             ]);
@@ -252,17 +273,46 @@ class KuisController extends Controller
 
             DB::beginTransaction();
 
+            // Buat array kelas legacy dari kelas_ids untuk backward compat
+            $kelasLegacy = [];
+            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
+                $kelasData = \App\Models\Kelas::whereIn('id', $payload['kelas_ids'])->pluck('tingkat')->unique()->values()->toArray();
+                $kelasLegacy = $kelasData;
+            } elseif (isset($payload['kelas'])) {
+                $kelasLegacy = $payload['kelas'];
+            }
+
+            $status = $payload['status'] ?? 'Draft';
+            $requestedSoalCount = isset($payload['soal']) && is_array($payload['soal']) ? count($payload['soal']) : 0;
+
             $kuis = Kuis::create([
                 'judul' => $payload['judul'],
-                'kelas' => $kelas,
+                'kelas' => $kelasLegacy,
                 'batas_waktu' => $payload['batas_waktu'] ?? 60,
-                'status' => $payload['status'] ?? 'Draft',
+                'draft_soal_count' => $this->isDraftStatus($status) ? $requestedSoalCount : 0,
+                'status' => $status,
                 'created_by' => auth()->id()
             ]);
 
+            // Sync kelas via pivot table (WAJIB ada kelas_ids)
+            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
+                $kuis->kelasRelation()->sync($payload['kelas_ids']);
+            }
+
             // Create soal (optional)
             if (count($soalList) > 0) {
-                $soalValidator = Validator::make(['soal' => $soalList], [
+                $soalListToPersist = $soalList;
+
+                // Draft: boleh simpan meski soal masih parsial.
+                // Hanya soal yang sudah lengkap yang dipersist ke tabel soal.
+                if ($this->isDraftStatus($status)) {
+                    $soalListToPersist = array_values(array_filter($soalList, function ($soal) {
+                        return $this->isCompleteSoal($soal);
+                    }));
+                }
+
+                if (!$this->isDraftStatus($status)) {
+                    $soalValidator = Validator::make(['soal' => $soalList], [
                     'soal' => 'array|min:1',
                     'soal.*.pertanyaan' => 'required|string',
                     'soal.*.image' => 'nullable|string',
@@ -279,31 +329,32 @@ class KuisController extends Controller
                     'soal.*.jawaban.required' => 'Jawaban yang benar wajib dipilih',
                 ]);
 
-                if ($soalValidator->fails()) {
-                    DB::rollBack();
-                    $response = [
-                        'success' => false,
-                        'message' => 'Validasi gagal',
-                        'errors' => $soalValidator->errors(),
-                    ];
-
-                    if (app()->environment('local')) {
-                        $response['debug'] = [
-                            'first_soal' => $soalList[0] ?? null,
-                            'first_soal_keys' => isset($soalList[0]) && is_array($soalList[0]) ? array_keys($soalList[0]) : null,
+                    if ($soalValidator->fails()) {
+                        DB::rollBack();
+                        $response = [
+                            'success' => false,
+                            'message' => 'Validasi gagal',
+                            'errors' => $soalValidator->errors(),
                         ];
 
-                        Log::info('Kuis update soal validation failed', [
-                            'kuis_id' => $kuis->id,
-                            'errors' => $soalValidator->errors()->toArray(),
-                            'first_soal' => $soalList[0] ?? null,
-                        ]);
-                    }
+                        if (app()->environment('local')) {
+                            $response['debug'] = [
+                                'first_soal' => $soalList[0] ?? null,
+                                'first_soal_keys' => isset($soalList[0]) && is_array($soalList[0]) ? array_keys($soalList[0]) : null,
+                            ];
 
-                    return response()->json($response, 422);
+                            Log::info('Kuis update soal validation failed', [
+                                'kuis_id' => $kuis->id,
+                                'errors' => $soalValidator->errors()->toArray(),
+                                'first_soal' => $soalList[0] ?? null,
+                            ]);
+                        }
+
+                        return response()->json($response, 422);
+                    }
                 }
 
-                foreach ($soalList as $index => $soalData) {
+                foreach ($soalListToPersist as $index => $soalData) {
                     Soal::create([
                         'kuis_id' => $kuis->id,
                         'pertanyaan' => $soalData['pertanyaan'],
@@ -317,13 +368,9 @@ class KuisController extends Controller
 
             DB::commit();
 
-            // Sync kelas via pivot table
-            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
-                $kuis->kelasRelation()->sync($payload['kelas_ids']);
-            }
-
             $kuis->load('soal', 'kelasRelation:id,nama,tingkat');
             $kuis->loadCount('soal as jumlah_soal');
+            $displaySoalCount = $this->getDisplaySoalCount($kuis, (int) ($kuis->jumlah_soal ?? 0));
 
             return response()->json([
                 'success' => true,
@@ -339,7 +386,10 @@ class KuisController extends Controller
                     ]),
                     'kelas_ids' => $kuis->kelasRelation->pluck('id'),
                     'batas_waktu' => $kuis->batas_waktu,
-                    'jumlah_soal' => $kuis->jumlah_soal ?? 0,
+                    'draft_soal_count' => (int) ($kuis->draft_soal_count ?? 0),
+                    'jumlah_soal' => $displaySoalCount,
+                    'soal_count' => $displaySoalCount,
+                    'total_soal' => $displaySoalCount,
                     'status' => $kuis->status,
                     'created_at' => $kuis->created_at,
                     'soal' => $kuis->soal,
@@ -358,10 +408,16 @@ class KuisController extends Controller
     /**
      * Display the specified kuis with questions
      * GET /api/kuis/{id}
+     * 
+     * GATING SOAL:
+     * - Siswa: TIDAK dapat soal, hanya metadata (harus start attempt dulu)
+     * - Guru/Admin: dapat soal lengkap dengan jawaban
      */
     public function show(string $id)
     {
         try {
+            $user = auth()->user();
+            
             $kuis = Kuis::with(['soal', 'kelasRelation:id,nama,tingkat'])
                 ->withCount('soal as jumlah_soal')
                 ->find($id);
@@ -373,39 +429,97 @@ class KuisController extends Controller
                 ], 404);
             }
 
-            $totalPeserta = HasilKuis::query()
-                ->where('kuis_id', $kuis->id)
+            // Count peserta dari KuisAttempt (bukan HasilKuis)
+            $totalPeserta = KuisAttempt::where('kuis_id', $kuis->id)
+                ->whereIn('status', ['submitted', 'expired'])
                 ->distinct('siswa_id')
                 ->count('siswa_id');
 
+            // Base data (metadata) - untuk semua role
+            $displaySoalCount = $this->getDisplaySoalCount($kuis, (int) ($kuis->jumlah_soal ?? 0));
+
+            $data = [
+                'id' => $kuis->id,
+                'judul' => $kuis->judul,
+                'kelas' => $kuis->kelas,
+                'kelas_list' => $kuis->kelasRelation->map(fn($k) => [
+                    'id' => $k->id,
+                    'nama' => $k->nama,
+                    'tingkat' => $k->tingkat
+                ]),
+                'kelas_ids' => $kuis->kelasRelation->pluck('id'),
+                'batas_waktu' => $kuis->batas_waktu,
+                'status' => $kuis->status,
+                'total_peserta' => (int) $totalPeserta,
+                'draft_soal_count' => (int) ($kuis->draft_soal_count ?? 0),
+                'jumlah_soal' => $displaySoalCount,
+                'soal_count' => $displaySoalCount,
+                'total_soal' => $displaySoalCount,
+                'created_at' => $kuis->created_at,
+            ];
+
+            // GATING SOAL: Siswa TIDAK dapat soal di endpoint ini
+            // Mereka harus start attempt dan akses via /attempts/{id}/questions
+            if ($user->role === 'siswa') {
+                // Cek apakah siswa sudah punya attempt
+                $existingAttempt = \App\Models\KuisAttempt::where('kuis_id', $id)
+                    ->where('siswa_id', $user->id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                if ($existingAttempt) {
+                    $data['attempt'] = [
+                        'id' => $existingAttempt->id,
+                        'status' => $existingAttempt->status,
+                        'started_at' => $existingAttempt->started_at,
+                        'score' => $existingAttempt->score,
+                    ];
+                } else {
+                    $data['attempt'] = null;
+                }
+                
+                // TIDAK sertakan soal untuk siswa
+                $data['soal'] = null;
+                $data['message'] = 'Mulai kuis untuk melihat soal';
+            } else {
+                // Guru/Admin: dapat soal lengkap dengan jawaban
+                $soalMapped = $kuis->soal->map(function ($s) {
+                    return [
+                        'id' => $s->id,
+                        'pertanyaan' => $s->pertanyaan,
+                        'image' => $s->image,
+                        'pilihan' => $s->pilihan,
+                        'jawaban' => $s->jawaban, // Kunci jawaban
+                        'urutan' => $s->urutan,
+                    ];
+                });
+
+                if ($this->isDraftStatus((string) $kuis->status) && $displaySoalCount > $soalMapped->count()) {
+                    for ($i = $soalMapped->count() + 1; $i <= $displaySoalCount; $i++) {
+                        $soalMapped->push([
+                            'id' => null,
+                            'pertanyaan' => '',
+                            'image' => null,
+                            'pilihan' => [
+                                'A' => '',
+                                'B' => '',
+                                'C' => '',
+                                'D' => '',
+                                'E' => '',
+                            ],
+                            'jawaban' => null,
+                            'urutan' => $i,
+                            'is_placeholder' => true,
+                        ]);
+                    }
+                }
+
+                $data['soal'] = $soalMapped->values();
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $kuis->id,
-                    'judul' => $kuis->judul,
-                    'kelas' => $kuis->kelas,
-                    'kelas_list' => $kuis->kelasRelation->map(fn($k) => [
-                        'id' => $k->id,
-                        'nama' => $k->nama,
-                        'tingkat' => $k->tingkat
-                    ]),
-                    'kelas_ids' => $kuis->kelasRelation->pluck('id'),
-                    'batas_waktu' => $kuis->batas_waktu,
-                    'status' => $kuis->status,
-                    'total_peserta' => (int) $totalPeserta,
-                    'jumlah_soal' => (int) ($kuis->jumlah_soal ?? 0),
-                    'soal' => $kuis->soal->map(function ($s) {
-                        return [
-                            'id' => $s->id,
-                            'pertanyaan' => $s->pertanyaan,
-                            'image' => $s->image,
-                            'pilihan' => $s->pilihan,
-                            'jawaban' => $s->jawaban,
-                            'urutan' => $s->urutan,
-                        ];
-                    }),
-                    'created_at' => $kuis->created_at,
-                ]
+                'data' => $data
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -518,8 +632,8 @@ class KuisController extends Controller
 
             $validator = Validator::make($payload, [
                 'judul' => 'sometimes|string|max:255',
-                'kelas' => 'sometimes', // Legacy: array of tingkat
-                'kelas_ids' => 'sometimes|array', // New: array of kelas IDs
+                'kelas' => 'sometimes', // Legacy: array of tingkat - opsional
+                'kelas_ids' => 'sometimes|array|min:1', // New: array of kelas IDs
                 'kelas_ids.*' => 'integer|exists:kelas,id',
                 'batas_waktu' => 'sometimes|integer|min:1',
                 'status' => 'sometimes|in:Draft,Aktif,Selesai',
@@ -539,16 +653,47 @@ class KuisController extends Controller
 
             $updateData = [];
             if ($request->has('judul')) $updateData['judul'] = $request->judul;
-            if ($request->has('kelas')) $updateData['kelas'] = $payload['kelas'];
             if ($request->has('batas_waktu')) $updateData['batas_waktu'] = $request->batas_waktu;
             if ($request->has('status')) $updateData['status'] = $request->status;
+            
+            // Update kelas legacy dari kelas_ids jika ada
+            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
+                $kelasData = \App\Models\Kelas::whereIn('id', $payload['kelas_ids'])->pluck('tingkat')->unique()->values()->toArray();
+                $updateData['kelas'] = $kelasData;
+            } elseif ($request->has('kelas')) {
+                $updateData['kelas'] = $payload['kelas'];
+            }
 
             $kuis->update($updateData);
 
+            // Sync kelas via pivot table jika ada kelas_ids
+            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
+                $kuis->kelasRelation()->sync($payload['kelas_ids']);
+            }
+
             // Update soal if provided and at least one question is actually filled.
             // If FE only sends empty placeholders, do nothing (do not wipe existing questions).
-            if (array_key_exists('soal', $payload) && count($soalList) > 0) {
-                $soalValidator = Validator::make(['soal' => $soalList], [
+            if (array_key_exists('soal', $payload)) {
+                $effectiveStatus = $request->has('status') ? (string) $request->status : (string) $kuis->status;
+                $requestedSoalCount = is_array($payload['soal']) ? count($payload['soal']) : 0;
+
+                if ($this->isDraftStatus($effectiveStatus)) {
+                    $kuis->draft_soal_count = $requestedSoalCount;
+                } elseif ($request->has('status') && !$this->isDraftStatus($effectiveStatus)) {
+                    $kuis->draft_soal_count = 0;
+                }
+
+                $soalListToPersist = $soalList;
+
+                if ($this->isDraftStatus($effectiveStatus)) {
+                    // Draft: soal boleh parsial, simpan hanya yang sudah lengkap.
+                    $soalListToPersist = array_values(array_filter($soalList, function ($soal) {
+                        return $this->isCompleteSoal($soal);
+                    }));
+                }
+
+                if (!$this->isDraftStatus($effectiveStatus)) {
+                    $soalValidator = Validator::make(['soal' => $soalList], [
                     'soal' => 'array|min:1',
                     'soal.*.pertanyaan' => 'required|string',
                     'soal.*.image' => 'nullable|string',
@@ -565,47 +710,55 @@ class KuisController extends Controller
                     'soal.*.jawaban.required' => 'Jawaban yang benar wajib dipilih',
                 ]);
 
-                if ($soalValidator->fails()) {
-                    DB::rollBack();
-                    $response = [
-                        'success' => false,
-                        'message' => 'Validasi gagal',
-                        'errors' => $soalValidator->errors(),
-                    ];
-
-                    if (app()->environment('local')) {
-                        $response['debug'] = [
-                            'first_soal' => $soalList[0] ?? null,
-                            'first_soal_keys' => isset($soalList[0]) && is_array($soalList[0]) ? array_keys($soalList[0]) : null,
+                    if ($soalValidator->fails()) {
+                        DB::rollBack();
+                        $response = [
+                            'success' => false,
+                            'message' => 'Validasi gagal',
+                            'errors' => $soalValidator->errors(),
                         ];
-                    }
 
-                    return response()->json($response, 422);
+                        if (app()->environment('local')) {
+                            $response['debug'] = [
+                                'first_soal' => $soalList[0] ?? null,
+                                'first_soal_keys' => isset($soalList[0]) && is_array($soalList[0]) ? array_keys($soalList[0]) : null,
+                            ];
+                        }
+
+                        return response()->json($response, 422);
+                    }
                 }
 
-                // Replace existing questions
-                Soal::where('kuis_id', $kuis->id)->delete();
+                // Draft dengan semua soal parsial: jangan hapus soal lama.
+                if (count($soalListToPersist) > 0) {
+                    // Replace existing questions
+                    Soal::where('kuis_id', $kuis->id)->delete();
 
-                foreach ($soalList as $index => $soalData) {
-                    Soal::create([
-                        'kuis_id' => $kuis->id,
-                        'pertanyaan' => $soalData['pertanyaan'],
-                        'image' => $soalData['image'] ?? null,
-                        'pilihan' => $soalData['pilihan'],
-                        'jawaban' => $soalData['jawaban'],
-                        'urutan' => $index + 1,
-                    ]);
+                    foreach ($soalListToPersist as $index => $soalData) {
+                        Soal::create([
+                            'kuis_id' => $kuis->id,
+                            'pertanyaan' => $soalData['pertanyaan'],
+                            'image' => $soalData['image'] ?? null,
+                            'pilihan' => $soalData['pilihan'],
+                            'jawaban' => $soalData['jawaban'],
+                            'urutan' => $index + 1,
+                        ]);
+                    }
                 }
             }
+
+            // Jika FE tidak kirim array soal saat pindah dari Draft ke non-Draft, reset hitung draft.
+            if (!array_key_exists('soal', $payload) && $request->has('status') && !$this->isDraftStatus((string) $request->status)) {
+                $kuis->draft_soal_count = 0;
+            }
+
+            $kuis->save();
 
             DB::commit();
 
-            // Sync kelas via pivot table jika ada kelas_ids
-            if (isset($payload['kelas_ids']) && is_array($payload['kelas_ids'])) {
-                $kuis->kelasRelation()->sync($payload['kelas_ids']);
-            }
-
             $kuis->load('soal', 'kelasRelation:id,nama,tingkat');
+            $kuis->loadCount('soal as jumlah_soal');
+            $displaySoalCount = $this->getDisplaySoalCount($kuis, (int) ($kuis->jumlah_soal ?? 0));
 
             return response()->json([
                 'success' => true,
@@ -621,6 +774,10 @@ class KuisController extends Controller
                     ]),
                     'kelas_ids' => $kuis->kelasRelation->pluck('id'),
                     'batas_waktu' => $kuis->batas_waktu,
+                    'draft_soal_count' => (int) ($kuis->draft_soal_count ?? 0),
+                    'jumlah_soal' => $displaySoalCount,
+                    'soal_count' => $displaySoalCount,
+                    'total_soal' => $displaySoalCount,
                     'status' => $kuis->status,
                     'soal' => $kuis->soal,
                 ]
@@ -633,6 +790,347 @@ class KuisController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Import soal dari CSV/XLSX (Guru/Admin)
+     * POST /api/kuis/{id}/import-soal
+     * multipart/form-data: file
+     *
+     * Template kolom (header):
+     * pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d, opsi_e, jawaban_benar (A-E)
+     */
+    public function importSoal(Request $request, string $id)
+    {
+        try {
+            $normalizedId = $this->normalizeKuisId($id);
+            $kuis = Kuis::with('kelasRelation:id,nama,tingkat')
+                ->withCount('soal as jumlah_soal')
+                ->find($normalizedId);
+
+            if (!$kuis) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kuis tidak ditemukan'
+                ], 404);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'file' => 'required|file|mimes:csv,txt,xlsx|max:10240',
+            ], [
+                'file.required' => 'File import wajib diunggah',
+                'file.mimes' => 'Format file harus CSV atau XLSX',
+                'file.max' => 'Ukuran file maksimal 10MB',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $file = $request->file('file');
+            $ext = strtolower($file->getClientOriginalExtension() ?: '');
+            $absolutePath = $file->getRealPath();
+
+            if (!$absolutePath || !is_file($absolutePath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File import tidak valid',
+                ], 422);
+            }
+
+            $rawRows = [];
+            if (in_array($ext, ['csv', 'txt'], true)) {
+                $rawRows = $this->readCsvRows($absolutePath);
+            } elseif ($ext === 'xlsx') {
+                $rawRows = $this->readXlsxRows($absolutePath);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Format file tidak didukung',
+                ], 422);
+            }
+
+            if (count($rawRows) < 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File kosong atau tidak memiliki data',
+                ], 422);
+            }
+
+            $headerRow = $rawRows[0] ?? [];
+            $headerMap = $this->buildImportHeaderMap($headerRow);
+
+            $requiredHeaders = ['pertanyaan', 'opsi_a', 'opsi_b', 'opsi_c', 'opsi_d', 'opsi_e', 'jawaban_benar'];
+            $missing = [];
+            foreach ($requiredHeaders as $h) {
+                if (!array_key_exists($h, $headerMap)) {
+                    $missing[] = $h;
+                }
+            }
+
+            if (!empty($missing)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Header kolom tidak sesuai template',
+                    'data' => [
+                        'missing_headers' => $missing,
+                        'expected' => $requiredHeaders,
+                    ],
+                ], 422);
+            }
+
+            $prepared = [];
+            $rowErrors = [];
+
+            for ($i = 1; $i < count($rawRows); $i++) {
+                $row = $rawRows[$i];
+
+                $rowAssoc = [];
+                foreach ($requiredHeaders as $key) {
+                    $idx = $headerMap[$key];
+                    $value = $row[$idx] ?? '';
+                    if (is_string($value)) {
+                        $value = trim($value);
+                    }
+                    $rowAssoc[$key] = $value;
+                }
+
+                $isEmptyRow = true;
+                foreach ($rowAssoc as $v) {
+                    if (trim((string) $v) !== '') {
+                        $isEmptyRow = false;
+                        break;
+                    }
+                }
+                if ($isEmptyRow) {
+                    continue;
+                }
+
+                $errors = [];
+                $pertanyaan = trim((string) ($rowAssoc['pertanyaan'] ?? ''));
+                $opsiA = trim((string) ($rowAssoc['opsi_a'] ?? ''));
+                $opsiB = trim((string) ($rowAssoc['opsi_b'] ?? ''));
+                $opsiC = trim((string) ($rowAssoc['opsi_c'] ?? ''));
+                $opsiD = trim((string) ($rowAssoc['opsi_d'] ?? ''));
+                $opsiE = trim((string) ($rowAssoc['opsi_e'] ?? ''));
+
+                $jawaban = strtoupper(trim((string) ($rowAssoc['jawaban_benar'] ?? '')));
+                if ($jawaban !== '') {
+                    $jawaban = strtoupper(substr($jawaban, 0, 1));
+                }
+
+                if ($pertanyaan === '') {
+                    $errors['pertanyaan'] = 'Pertanyaan wajib diisi';
+                }
+                if ($opsiA === '') {
+                    $errors['opsi_a'] = 'Opsi A wajib diisi';
+                }
+                if ($opsiB === '') {
+                    $errors['opsi_b'] = 'Opsi B wajib diisi';
+                }
+                if ($opsiC === '') {
+                    $errors['opsi_c'] = 'Opsi C wajib diisi';
+                }
+                if ($opsiD === '') {
+                    $errors['opsi_d'] = 'Opsi D wajib diisi';
+                }
+
+                if (!in_array($jawaban, ['A', 'B', 'C', 'D', 'E'], true)) {
+                    $errors['jawaban_benar'] = 'Jawaban benar harus A/B/C/D/E';
+                }
+                if ($jawaban === 'E' && $opsiE === '') {
+                    $errors['opsi_e'] = 'Opsi E wajib diisi jika jawaban benar = E';
+                }
+
+                if (!empty($errors)) {
+                    // +1 karena rawRows sudah termasuk header di index 0
+                    $rowErrors[] = [
+                        'row' => $i + 1,
+                        'errors' => $errors,
+                    ];
+                    continue;
+                }
+
+                $prepared[] = [
+                    'pertanyaan' => $pertanyaan,
+                    'pilihan' => [
+                        'A' => $opsiA,
+                        'B' => $opsiB,
+                        'C' => $opsiC,
+                        'D' => $opsiD,
+                        'E' => $opsiE,
+                    ],
+                    'jawaban' => $jawaban,
+                ];
+            }
+
+            if (!empty($rowErrors)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi data import gagal',
+                    'data' => [
+                        'row_errors' => $rowErrors,
+                    ],
+                ], 422);
+            }
+
+            if (count($prepared) === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada baris data yang valid untuk diimport',
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            // Replace existing soal (konsisten dengan KuisController::update)
+            Soal::where('kuis_id', $kuis->id)->delete();
+
+            foreach ($prepared as $index => $soalData) {
+                Soal::create([
+                    'kuis_id' => $kuis->id,
+                    'pertanyaan' => $soalData['pertanyaan'],
+                    'image' => null,
+                    'pilihan' => $soalData['pilihan'],
+                    'jawaban' => $soalData['jawaban'],
+                    'urutan' => $index + 1,
+                ]);
+            }
+
+            // Update draft count bila kuis masih Draft
+            if ($this->isDraftStatus((string) $kuis->status)) {
+                $kuis->draft_soal_count = count($prepared);
+                $kuis->save();
+            }
+
+            DB::commit();
+
+            $kuis->refresh();
+            $kuis->load('soal', 'kelasRelation:id,nama,tingkat');
+            $kuis->loadCount('soal as jumlah_soal');
+            $displaySoalCount = $this->getDisplaySoalCount($kuis, (int) ($kuis->jumlah_soal ?? 0));
+
+            $soalMapped = $kuis->soal->sortBy('urutan')->values()->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'pertanyaan' => $s->pertanyaan,
+                    'image' => $s->image,
+                    'pilihan' => $s->pilihan,
+                    'jawaban' => $s->jawaban,
+                    'urutan' => $s->urutan,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Import soal berhasil',
+                'data' => [
+                    'id' => $kuis->id,
+                    'judul' => $kuis->judul,
+                    'kelas' => $kuis->kelas,
+                    'kelas_list' => $kuis->kelasRelation->map(fn($k) => [
+                        'id' => $k->id,
+                        'nama' => $k->nama,
+                        'tingkat' => $k->tingkat
+                    ]),
+                    'kelas_ids' => $kuis->kelasRelation->pluck('id'),
+                    'batas_waktu' => $kuis->batas_waktu,
+                    'status' => $kuis->status,
+                    'draft_soal_count' => (int) ($kuis->draft_soal_count ?? 0),
+                    'jumlah_soal' => $displaySoalCount,
+                    'soal_count' => $displaySoalCount,
+                    'total_soal' => $displaySoalCount,
+                    'imported_count' => count($prepared),
+                    'soal' => $soalMapped,
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal import soal',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function buildImportHeaderMap(array $headerRow): array
+    {
+        $map = [];
+        foreach ($headerRow as $idx => $col) {
+            $normalized = $this->normalizeImportHeader($col);
+            if ($normalized === '') {
+                continue;
+            }
+
+            // Keep first occurrence
+            if (!array_key_exists($normalized, $map)) {
+                $map[$normalized] = $idx;
+            }
+        }
+
+        return $map;
+    }
+
+    private function normalizeImportHeader($value): string
+    {
+        $s = trim((string) $value);
+
+        // Remove UTF-8 BOM
+        $s = preg_replace('/^\xEF\xBB\xBF/', '', $s) ?? $s;
+
+        $s = strtolower($s);
+        $s = str_replace([' ', '-'], '_', $s);
+        $s = preg_replace('/[^a-z0-9_]/', '', $s) ?? $s;
+        return $s;
+    }
+
+    private function readCsvRows(string $absolutePath): array
+    {
+        $handle = fopen($absolutePath, 'r');
+        if ($handle === false) {
+            throw new \RuntimeException('Gagal membaca file CSV');
+        }
+
+        $firstLine = fgets($handle);
+        if ($firstLine === false) {
+            fclose($handle);
+            return [];
+        }
+
+        $delimiterCandidates = [',', ';', "\t"];
+        $bestDelimiter = ',';
+        $bestCount = 0;
+
+        foreach ($delimiterCandidates as $d) {
+            $count = count(str_getcsv($firstLine, $d));
+            if ($count > $bestCount) {
+                $bestCount = $count;
+                $bestDelimiter = $d;
+            }
+        }
+
+        rewind($handle);
+
+        $rows = [];
+        while (($data = fgetcsv($handle, 0, $bestDelimiter)) !== false) {
+            $rows[] = $data;
+        }
+        fclose($handle);
+
+        return $rows;
+    }
+
+    private function readXlsxRows(string $absolutePath): array
+    {
+        $spreadsheet = IOFactory::load($absolutePath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, false);
+        return is_array($rows) ? $rows : [];
     }
 
     /**
@@ -743,11 +1241,15 @@ class KuisController extends Controller
     /**
      * Submit kuis answer (Siswa)
      * POST /api/kuis/{id}/submit
+     * 
+     * @deprecated Gunakan KuisAttemptController::submit() via POST /kuis/{id}/attempts/{attemptId}/submit
+     * Endpoint ini tetap ada untuk backward compatibility tapi akan menyimpan ke KuisAttempt
      */
     public function submit(Request $request, string $id)
     {
         try {
-            $kuis = Kuis::with('soal')->find($id);
+            $normalizedId = $this->normalizeKuisId($id);
+            $kuis = Kuis::with('soal')->find($normalizedId);
 
             if (!$kuis) {
                 return response()->json([
@@ -759,8 +1261,8 @@ class KuisController extends Controller
             $validator = Validator::make($request->all(), [
                 'siswa_id' => 'required|exists:users,id',
                 'jawaban' => 'required|array',
-                'waktu_mulai' => 'required|date',
-                'waktu_selesai' => 'required|date'
+                'waktu_mulai' => 'nullable|date',
+                'waktu_selesai' => 'nullable|date'
             ]);
 
             if ($validator->fails()) {
@@ -796,23 +1298,29 @@ class KuisController extends Controller
 
             $totalSoal = $kuis->soal->count();
             $nilai = $totalSoal > 0 ? ($benar / $totalSoal) * 100 : 0;
+            $nilai = round($nilai, 2);
 
-            // Save hasil
-            HasilKuis::create([
-                'kuis_id' => $kuis->id,
+            // Save ke KuisAttempt (bukan HasilKuis)
+            $attempt = KuisAttempt::create([
+                'kuis_id' => $normalizedId,
                 'siswa_id' => $request->siswa_id,
-                'jawaban' => $request->jawaban,
-                'nilai' => round($nilai),
+                'started_at' => $request->waktu_mulai ?? now(),
+                'ends_at' => now()->addHour(), // Default 1 jam
+                'submitted_at' => $request->waktu_selesai ?? now(),
+                'status' => 'submitted',
+                'score' => $nilai,
                 'benar' => $benar,
                 'salah' => $salah,
-                'waktu_mulai' => $request->waktu_mulai,
-                'waktu_selesai' => $request->waktu_selesai
+                'total_soal' => $totalSoal,
+                'answers' => $request->jawaban,
             ]);
 
             return response()->json([
                 'success' => true,
+                'message' => 'Kuis berhasil disubmit (legacy endpoint, please use /attempts/{id}/submit)',
                 'data' => [
-                    'nilai' => round($nilai),
+                    'attempt_id' => $attempt->id,
+                    'nilai' => $nilai,
                     'benar' => $benar,
                     'salah' => $salah,
                     'detail' => $detail
@@ -830,12 +1338,15 @@ class KuisController extends Controller
     /**
      * Get nilai kuis siswa
      * GET /api/kuis/{id}/nilai
-     * Query params: kelas, siswa_id
+     * Query params: kelas, kelas_id, siswa_id
+     * 
+     * NOTE: Sekarang menggunakan KuisAttempt (bukan HasilKuis yang deprecated)
      */
     public function getNilai(Request $request, string $id)
     {
         try {
-            $kuis = Kuis::find($id);
+            $normalizedId = $this->normalizeKuisId($id);
+            $kuis = Kuis::find($normalizedId);
 
             if (!$kuis) {
                 return response()->json([
@@ -844,9 +1355,11 @@ class KuisController extends Controller
                 ], 404);
             }
 
-            $query = HasilKuis::where('kuis_id', $id)
+            // Query dari KuisAttempt (hanya yang sudah submitted/expired)
+            $query = \App\Models\KuisAttempt::where('kuis_id', $normalizedId)
+                ->whereIn('status', ['submitted', 'expired'])
                 ->with(['siswa' => function($q) {
-                    $q->select('id', 'name', 'nis', 'kelas', 'jurusan_id');
+                    $q->select('id', 'name', 'nis', 'kelas', 'kelas_id', 'jurusan_id');
                 }]);
 
             // Filter by siswa_id
@@ -854,27 +1367,36 @@ class KuisController extends Controller
                 $query->where('siswa_id', $request->siswa_id);
             }
 
-            // Filter by kelas (via siswa relationship)
-            if ($request->has('kelas')) {
+            // Filter by kelas_id (preferred)
+            if ($request->has('kelas_id')) {
+                $query->whereHas('siswa', function($q) use ($request) {
+                    $q->where('kelas_id', $request->kelas_id);
+                });
+            } elseif ($request->has('kelas')) {
+                // Legacy: filter by kelas string
                 $query->whereHas('siswa', function($q) use ($request) {
                     $q->where('kelas', $request->kelas);
                 });
             }
 
-            $hasil = $query->orderBy('nilai', 'desc')->get();
+            $attempts = $query->orderBy('score', 'desc')->get();
 
-            $data = $hasil->map(function($h) {
+            $data = $attempts->map(function($a) {
                 return [
-                    'siswa_id' => $h->siswa_id,
-                    'siswa_nama' => $h->siswa->name ?? null,
-                    'siswa_nis' => $h->siswa->nis ?? null,
-                    'siswa_kelas' => $h->siswa->kelas ?? null,
-                    'nilai' => $h->nilai,
-                    'benar' => $h->benar,
-                    'salah' => $h->salah,
-                    'waktu_mulai' => $h->waktu_mulai,
-                    'waktu_selesai' => $h->waktu_selesai,
-                    'created_at' => $h->created_at
+                    'attempt_id' => $a->id,
+                    'siswa_id' => $a->siswa_id,
+                    'siswa_nama' => $a->siswa->name ?? null,
+                    'siswa_nis' => $a->siswa->nis ?? null,
+                    'siswa_kelas' => $a->siswa->kelas ?? null,
+                    'siswa_kelas_id' => $a->siswa->kelas_id ?? null,
+                    'nilai' => $a->score,
+                    'benar' => $a->benar,
+                    'salah' => $a->salah,
+                    'total_soal' => $a->total_soal,
+                    'status' => $a->status,
+                    'started_at' => $a->started_at,
+                    'submitted_at' => $a->submitted_at,
+                    'created_at' => $a->created_at
                 ];
             });
 
@@ -1054,5 +1576,43 @@ class KuisController extends Controller
         }
 
         return null;
+    }
+
+    private function isDraftStatus(?string $status): bool
+    {
+        return strtoupper((string) $status) === 'DRAFT';
+    }
+
+    private function isCompleteSoal($soal): bool
+    {
+        if (!is_array($soal)) {
+            return false;
+        }
+
+        $pertanyaan = isset($soal['pertanyaan']) ? trim((string) $soal['pertanyaan']) : '';
+        $jawaban = isset($soal['jawaban']) ? strtoupper(trim((string) $soal['jawaban'])) : '';
+        $pilihan = isset($soal['pilihan']) && is_array($soal['pilihan']) ? $soal['pilihan'] : [];
+
+        if ($pertanyaan === '' || !in_array($jawaban, ['A', 'B', 'C', 'D', 'E'], true)) {
+            return false;
+        }
+
+        foreach (['A', 'B', 'C', 'D'] as $k) {
+            if (!array_key_exists($k, $pilihan) || trim((string) $pilihan[$k]) === '') {
+                return false;
+            }
+        }
+
+        if (!array_key_exists($jawaban, $pilihan) || trim((string) $pilihan[$jawaban]) === '') {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function getDisplaySoalCount($kuis, int $savedSoalCount): int
+    {
+        $draftCount = (int) ($kuis->draft_soal_count ?? 0);
+        return max($savedSoalCount, $draftCount);
     }
 }

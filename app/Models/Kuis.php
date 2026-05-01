@@ -19,12 +19,14 @@ class Kuis extends Model
         'judul',
         'kelas',
         'batas_waktu',
+        'draft_soal_count',
         'status',
         'created_by'
     ];
 
     protected $casts = [
         'kelas' => 'array',
+        'draft_soal_count' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

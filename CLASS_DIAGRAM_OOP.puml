@@ -1,0 +1,669 @@
+@startuml Class_Diagram_Jagat_Kawruh
+
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontStyle bold
+skinparam classBackgroundColor<<User>> #dae8fc
+skinparam classBackgroundColor<<Master>> #d5e8d4
+skinparam classBackgroundColor<<Materi>> #fff2cc
+skinparam classBackgroundColor<<Kuis>> #f8cecc
+skinparam classBackgroundColor<<PBL>> #e1d5e7
+skinparam classBackgroundColor<<Support>> #ffe6cc
+skinparam classBackgroundColor<<Pivot>> #f5f5f5
+
+title Class Diagram OOP - Sistem E-Learning Jagat Kawruh
+
+' ============================================
+' USER & AUTHENTICATION
+' ============================================
+
+class User <<User>> {
+    - id: int
+    - name: string
+    - email: string
+    - password: string
+    - role: string
+    - nisn: string
+    - nis: string
+    - nip: string
+    - kelas: string
+    - kelas_id: int
+    - jurusan_id: int
+    - kelas_diampu: string
+    - phone: string
+    - address: string
+    - avatar: string
+    - is_active: boolean
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): User
+    + read(): User
+    + update(): boolean
+    + delete(): boolean
+    + getId(): int
+    + setId(int): void
+    + getName(): string
+    + setName(string): void
+    + getEmail(): string
+    + setEmail(string): void
+    + getPassword(): string
+    + setPassword(string): void
+    + getRole(): string
+    + setRole(string): void
+    + getNisn(): string
+    + setNisn(string): void
+    + getNis(): string
+    + setNis(string): void
+    + getNip(): string
+    + setNip(string): void
+    + getKelas(): string
+    + setKelas(string): void
+    + getKelasId(): int
+    + setKelasId(int): void
+    + getJurusanId(): int
+    + setJurusanId(int): void
+    + getKelasDiampu(): string
+    + setKelasDiampu(string): void
+    + getPhone(): string
+    + setPhone(string): void
+    + getAddress(): string
+    + setAddress(string): void
+    + getAvatar(): string
+    + setAvatar(string): void
+    + getIsActive(): boolean
+    + setIsActive(boolean): void
+}
+
+class Jurusan <<Master>> {
+    - id: string
+    - nama: string
+    - deskripsi: string
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Jurusan
+    + read(): Jurusan
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getNama(): string
+    + setNama(string): void
+    + getDeskripsi(): string
+    + setDeskripsi(string): void
+}
+
+class Kelas <<Master>> {
+    - id: int
+    - nama: string
+    - tingkat: int
+    - jurusan_id: int
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Kelas
+    + read(): Kelas
+    + update(): boolean
+    + delete(): boolean
+    + getId(): int
+    + setId(int): void
+    + getNama(): string
+    + setNama(string): void
+    + getTingkat(): int
+    + setTingkat(int): void
+    + getJurusanId(): int
+    + setJurusanId(int): void
+}
+
+' ============================================
+' MATERI
+' ============================================
+
+class Materi <<Materi>> {
+    - id: string
+    - judul: string
+    - deskripsi: string
+    - kelas: string
+    - jurusan_id: int
+    - file_name: string
+    - file_path: string
+    - file_size: int
+    - status: string
+    - created_by: int
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Materi
+    + read(): Materi
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getJudul(): string
+    + setJudul(string): void
+    + getDeskripsi(): string
+    + setDeskripsi(string): void
+    + getKelas(): string
+    + setKelas(string): void
+    + getJurusanId(): int
+    + setJurusanId(int): void
+    + getFileName(): string
+    + setFileName(string): void
+    + getFilePath(): string
+    + setFilePath(string): void
+    + getFileSize(): int
+    + setFileSize(int): void
+    + getStatus(): string
+    + setStatus(string): void
+    + getCreatedBy(): int
+    + setCreatedBy(int): void
+}
+
+' ============================================
+' KUIS & SOAL
+' ============================================
+
+class Kuis <<Kuis>> {
+    - id: string
+    - judul: string
+    - kelas: string
+    - batas_waktu: int
+    - status: string
+    - created_by: int
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Kuis
+    + read(): Kuis
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getJudul(): string
+    + setJudul(string): void
+    + getKelas(): string
+    + setKelas(string): void
+    + getBatasWaktu(): int
+    + setBatasWaktu(int): void
+    + getStatus(): string
+    + setStatus(string): void
+    + getCreatedBy(): int
+    + setCreatedBy(int): void
+}
+
+class Soal <<Kuis>> {
+    - id: string
+    - kuis_id: string
+    - pertanyaan: string
+    - image: string
+    - pilihan: array
+    - jawaban: string
+    - urutan: int
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Soal
+    + read(): Soal
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getKuisId(): string
+    + setKuisId(string): void
+    + getPertanyaan(): string
+    + setPertanyaan(string): void
+    + getImage(): string
+    + setImage(string): void
+    + getPilihan(): array
+    + setPilihan(array): void
+    + getJawaban(): string
+    + setJawaban(string): void
+    + getUrutan(): int
+    + setUrutan(int): void
+}
+
+class KuisAttempt <<Kuis>> {
+    - id: int
+    - kuis_id: string
+    - siswa_id: int
+    - token: string
+    - started_at: datetime
+    - ends_at: datetime
+    - submitted_at: datetime
+    - status: string
+    - score: float
+    - benar: int
+    - salah: int
+    - total_soal: int
+    - answers: array
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): KuisAttempt
+    + read(): KuisAttempt
+    + update(): boolean
+    + delete(): boolean
+    + getId(): int
+    + setId(int): void
+    + getKuisId(): string
+    + setKuisId(string): void
+    + getSiswaId(): int
+    + setSiswaId(int): void
+    + getToken(): string
+    + setToken(string): void
+    + getStartedAt(): datetime
+    + setStartedAt(datetime): void
+    + getEndsAt(): datetime
+    + setEndsAt(datetime): void
+    + getSubmittedAt(): datetime
+    + setSubmittedAt(datetime): void
+    + getStatus(): string
+    + setStatus(string): void
+    + getScore(): float
+    + setScore(float): void
+    + getBenar(): int
+    + setBenar(int): void
+    + getSalah(): int
+    + setSalah(int): void
+    + getTotalSoal(): int
+    + setTotalSoal(int): void
+    + getAnswers(): array
+    + setAnswers(array): void
+}
+
+class HasilKuis <<Kuis>> {
+    - id: int
+    - kuis_id: string
+    - siswa_id: int
+    - jawaban: array
+    - nilai: float
+    - benar: int
+    - salah: int
+    - waktu_mulai: datetime
+    - waktu_selesai: datetime
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): HasilKuis
+    + read(): HasilKuis
+    + update(): boolean
+    + delete(): boolean
+    + getId(): int
+    + setId(int): void
+    + getKuisId(): string
+    + setKuisId(string): void
+    + getSiswaId(): int
+    + setSiswaId(int): void
+    + getJawaban(): array
+    + setJawaban(array): void
+    + getNilai(): float
+    + setNilai(float): void
+    + getBenar(): int
+    + setBenar(int): void
+    + getSalah(): int
+    + setSalah(int): void
+    + getWaktuMulai(): datetime
+    + setWaktuMulai(datetime): void
+    + getWaktuSelesai(): datetime
+    + setWaktuSelesai(datetime): void
+}
+
+' ============================================
+' PBL (PROJECT BASED LEARNING)
+' ============================================
+
+class PBL <<PBL>> {
+    - id: string
+    - judul: string
+    - masalah: string
+    - tujuan_pembelajaran: string
+    - panduan: string
+    - referensi: string
+    - kelas: string
+    - jurusan_id: int
+    - status: string
+    - deadline: date
+    - created_by: int
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): PBL
+    + read(): PBL
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getJudul(): string
+    + setJudul(string): void
+    + getMasalah(): string
+    + setMasalah(string): void
+    + getTujuanPembelajaran(): string
+    + setTujuanPembelajaran(string): void
+    + getPanduan(): string
+    + setPanduan(string): void
+    + getReferensi(): string
+    + setReferensi(string): void
+    + getKelas(): string
+    + setKelas(string): void
+    + getJurusanId(): int
+    + setJurusanId(int): void
+    + getStatus(): string
+    + setStatus(string): void
+    + getDeadline(): date
+    + setDeadline(date): void
+    + getCreatedBy(): int
+    + setCreatedBy(int): void
+}
+
+class PBLSintaks <<PBL>> {
+    - id: string
+    - pbl_id: string
+    - judul: string
+    - instruksi: string
+    - urutan: int
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): PBLSintaks
+    + read(): PBLSintaks
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getPblId(): string
+    + setPblId(string): void
+    + getJudul(): string
+    + setJudul(string): void
+    + getInstruksi(): string
+    + setInstruksi(string): void
+    + getUrutan(): int
+    + setUrutan(int): void
+}
+
+class PBLProgress <<PBL>> {
+    - id: int
+    - pbl_id: string
+    - sintaks_id: string
+    - kelompok_id: string
+    - catatan: string
+    - file_path: string
+    - file_name: string
+    - submitted_at: datetime
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): PBLProgress
+    + read(): PBLProgress
+    + update(): boolean
+    + delete(): boolean
+    + getId(): int
+    + setId(int): void
+    + getPblId(): string
+    + setPblId(string): void
+    + getSintaksId(): string
+    + setSintaksId(string): void
+    + getKelompokId(): string
+    + setKelompokId(string): void
+    + getCatatan(): string
+    + setCatatan(string): void
+    + getFilePath(): string
+    + setFilePath(string): void
+    + getFileName(): string
+    + setFileName(string): void
+    + getSubmittedAt(): datetime
+    + setSubmittedAt(datetime): void
+}
+
+class PBLSubmission <<PBL>> {
+    - id: string
+    - pbl_id: string
+    - kelompok_id: string
+    - file_name: string
+    - file_path: string
+    - file_size: int
+    - catatan: string
+    - nilai: float
+    - feedback: string
+    - submitted_at: datetime
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): PBLSubmission
+    + read(): PBLSubmission
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getPblId(): string
+    + setPblId(string): void
+    + getKelompokId(): string
+    + setKelompokId(string): void
+    + getFileName(): string
+    + setFileName(string): void
+    + getFilePath(): string
+    + setFilePath(string): void
+    + getFileSize(): int
+    + setFileSize(int): void
+    + getCatatan(): string
+    + setCatatan(string): void
+    + getNilai(): float
+    + setNilai(float): void
+    + getFeedback(): string
+    + setFeedback(string): void
+    + getSubmittedAt(): datetime
+    + setSubmittedAt(datetime): void
+}
+
+class Kelompok <<PBL>> {
+    - id: string
+    - pbl_id: string
+    - nama_kelompok: string
+    - anggota: array
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Kelompok
+    + read(): Kelompok
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getPblId(): string
+    + setPblId(string): void
+    + getNamaKelompok(): string
+    + setNamaKelompok(string): void
+    + getAnggota(): array
+    + setAnggota(array): void
+}
+
+' ============================================
+' NOTIFIKASI & HELPDESK
+' ============================================
+
+class Notifikasi <<Support>> {
+    - id: string
+    - user_id: int
+    - judul: string
+    - pesan: string
+    - tipe: string
+    - read: boolean
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Notifikasi
+    + read(): Notifikasi
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getUserId(): int
+    + setUserId(int): void
+    + getJudul(): string
+    + setJudul(string): void
+    + getPesan(): string
+    + setPesan(string): void
+    + getTipe(): string
+    + setTipe(string): void
+    + getRead(): boolean
+    + setRead(boolean): void
+}
+
+class Helpdesk <<Support>> {
+    - id: string
+    - siswa_id: int
+    - kategori: string
+    - judul: string
+    - pesan: string
+    - status: string
+    - balasan: string
+    - created_at: datetime
+    - updated_at: datetime
+    --
+    + create(): Helpdesk
+    + read(): Helpdesk
+    + update(): boolean
+    + delete(): boolean
+    + getId(): string
+    + setId(string): void
+    + getSiswaId(): int
+    + setSiswaId(int): void
+    + getKategori(): string
+    + setKategori(string): void
+    + getJudul(): string
+    + setJudul(string): void
+    + getPesan(): string
+    + setPesan(string): void
+    + getStatus(): string
+    + setStatus(string): void
+    + getBalasan(): string
+    + setBalasan(string): void
+}
+
+' ============================================
+' PIVOT TABLES
+' ============================================
+
+class MateriKelas <<Pivot>> {
+    - id: int
+    - materi_id: string
+    - kelas_id: int
+    - created_at: datetime
+    - updated_at: datetime
+}
+
+class KuisKelas <<Pivot>> {
+    - id: int
+    - kuis_id: string
+    - kelas_id: int
+    - created_at: datetime
+    - updated_at: datetime
+}
+
+class PBLKelas <<Pivot>> {
+    - id: int
+    - pbl_id: string
+    - kelas_id: int
+    - created_at: datetime
+    - updated_at: datetime
+}
+
+' ============================================
+' RELATIONSHIPS
+' ============================================
+
+' User Relationships
+Jurusan "1" --> "*" User : memiliki
+Kelas "1" --> "*" User : memiliki siswa
+Jurusan "1" --> "*" Kelas : memiliki
+
+' Materi Relationships
+User "1" --> "*" Materi : membuat
+Jurusan "1" --> "*" Materi : untuk
+Materi "1" --> "*" MateriKelas
+MateriKelas "*" --> "1" Kelas
+
+' Kuis Relationships
+User "1" --> "*" Kuis : membuat
+Kuis "1" --> "*" KuisKelas
+KuisKelas "*" --> "1" Kelas
+Kuis "1" --> "*" Soal : memiliki
+Kuis "1" --> "*" KuisAttempt : memiliki
+Kuis "1" --> "*" HasilKuis : memiliki
+User "1" --> "*" KuisAttempt : mengerjakan
+User "1" --> "*" HasilKuis : mendapat
+
+' PBL Relationships
+User "1" --> "*" PBL : membuat
+Jurusan "1" --> "*" PBL : untuk
+PBL "1" --> "*" PBLKelas
+PBLKelas "*" --> "1" Kelas
+PBL "1" --> "*" PBLSintaks : memiliki tahapan
+PBL "1" --> "*" Kelompok : memiliki
+PBL "1" --> "*" PBLSubmission : memiliki
+PBL "1" --> "*" PBLProgress : memiliki
+Kelompok "1" --> "*" PBLSubmission : mengumpulkan
+Kelompok "1" --> "*" PBLProgress : mengerjakan
+PBLSintaks "1" --> "*" PBLProgress : untuk
+
+' Notifikasi & Helpdesk
+User "1" --> "*" Notifikasi : menerima
+User "1" --> "*" Helpdesk : membuat tiket
+
+legend right
+  |= Warna |= Kategori |
+  |<#dae8fc> | User/Auth |
+  |<#d5e8d4> | Master Data |
+  |<#fff2cc> | Materi |
+  |<#f8cecc> | Kuis |
+  |<#e1d5e7> | PBL |
+  |<#ffe6cc> | Support |
+  |<#f5f5f5> | Pivot Table |
+endlegend
+
+note bottom of User
+  Primary Key: Auto Increment (int)
+  Role: admin, guru, siswa
+end note
+
+note bottom of Jurusan
+  Primary Key: JUR-{number}
+end note
+
+note bottom of Materi
+  Primary Key: materi-{number}
+end note
+
+note bottom of Kuis
+  Primary Key: kuis-{number}
+end note
+
+note bottom of Soal
+  Primary Key: soal-{number}
+end note
+
+note bottom of PBL
+  Primary Key: pbl-{number}
+end note
+
+note bottom of PBLSintaks
+  Primary Key: sintaks-{number}
+end note
+
+note bottom of Kelompok
+  Primary Key: kelompok-{number}
+end note
+
+note bottom of PBLSubmission
+  Primary Key: submit-{number}
+end note
+
+note bottom of Notifikasi
+  Primary Key: notif-{number}
+end note
+
+note bottom of Helpdesk
+  Primary Key: ticket-{number}
+end note
+
+@enduml

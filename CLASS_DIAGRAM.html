@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jagat Kawruh - Class Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            color: white;
+            padding: 30px 0;
+        }
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .diagram-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        .legend {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .legend h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .legend-color {
+            width: 40px;
+            height: 25px;
+            border-radius: 5px;
+        }
+        .color-user { background: #e1f5fe; border: 2px solid #0288d1; }
+        .color-kelas { background: #f3e5f5; border: 2px solid #7b1fa2; }
+        .color-kuis { background: #fff3e0; border: 2px solid #f57c00; }
+        .color-pbl { background: #e8f5e9; border: 2px solid #388e3c; }
+        .color-materi { background: #fce4ec; border: 2px solid #c2185b; }
+        .color-support { background: #fff8e1; border: 2px solid #ffa000; }
+        .color-pivot { background: #eceff1; border: 2px solid #546e7a; }
+        footer {
+            text-align: center;
+            color: white;
+            padding: 30px 0;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 Jagat Kawruh</h1>
+            <p>Class Diagram - Sistem Media Pembelajaran Berbasis Laravel</p>
+        </header>
+
+        <div class="diagram-container">
+            <pre class="mermaid">
+classDiagram
+    direction TB
+    
+    %% ========== USER & KELAS ==========
+    class User {
+        +int id
+        +string name
+        +string email
+        +string password
+        +enum role [admin, guru, siswa]
+        +string nisn
+        +string nis
+        +string nip
+        +int kelas_id
+        +int jurusan_id
+        +array kelas_diampu
+        +string phone
+        +string address
+        +string avatar
+        +boolean is_active
+        +timestamps
+        ---
+        +jurusan() Jurusan
+        +kelas() Kelas
+        +kuisAttempts() KuisAttempt[]
+        +notifikasi() Notifikasi[]
+        +helpdesk() Helpdesk[]
+    }
+
+    class Kelas {
+        +int id
+        +string nama
+        +enum tingkat [X, XI, XII]
+        +int jurusan_id
+        +timestamps
+        ---
+        +jurusan() Jurusan
+        +materis() Materi[]
+        +kuis() Kuis[]
+        +pbls() PBL[]
+    }
+
+    class Jurusan {
+        +string id [JUR-X]
+        +string nama
+        +string deskripsi
+        +timestamps
+        ---
+        +kelas() Kelas[]
+        +users() User[]
+    }
+
+    %% ========== MATERI ==========
+    class Materi {
+        +string id [materi-X]
+        +string judul
+        +string deskripsi
+        +string kelas [deprecated]
+        +string jurusan_id
+        +string file_name
+        +string file_path
+        +int file_size
+        +enum status [Aktif, Non-Aktif]
+        +int created_by
+        +timestamps
+        ---
+        +creator() User
+        +jurusan() Jurusan
+        +kelasRelation() Kelas[]
+    }
+
+    %% ========== KUIS SYSTEM ==========
+    class Kuis {
+        +string id [kuis-X]
+        +string judul
+        +array kelas [deprecated]
+        +int batas_waktu
+        +enum status [Aktif, Non-Aktif]
+        +int created_by
+        +timestamps
+        ---
+        +soal() Soal[]
+        +attempts() KuisAttempt[]
+        +creator() User
+        +kelasRelation() Kelas[]
+    }
+
+    class Soal {
+        +string id [soal-X]
+        +string kuis_id
+        +string pertanyaan
+        +string image
+        +array pilihan [A, B, C, D, E]
+        +string jawaban
+        +int urutan
+        +timestamps
+        ---
+        +kuis() Kuis
+    }
+
+    class KuisAttempt {
+        +int id
+        +string kuis_id
+        +int siswa_id
+        +string token
+        +datetime started_at
+        +datetime ends_at
+        +datetime submitted_at
+        +enum status [in_progress, submitted, expired]
+        +int score
+        +int benar
+        +int salah
+        +int total_soal
+        +json answers
+        +timestamps
+        ---
+        +kuis() Kuis
+        +siswa() User
+    }
+
+    %% ========== PBL SYSTEM ==========
+    class PBL {
+        +string id [pbl-X]
+        +string judul
+        +text masalah
+        +text tujuan_pembelajaran
+        +text panduan
+        +text referensi
+        +string kelas [deprecated]
+        +string jurusan_id
+        +enum status [Aktif, Non-Aktif]
+        +date deadline
+        +int created_by
+        +timestamps
+        ---
+        +kelompok() Kelompok[]
+        +submissions() PBLSubmission[]
+        +sintaks() PBLSintaks[]
+        +jurusan() Jurusan
+        +creator() User
+        +kelasRelation() Kelas[]
+    }
+
+    class Kelompok {
+        +string id [kelompok-X]
+        +string pbl_id
+        +string nama_kelompok
+        +array anggota [user_ids]
+        +timestamps
+        ---
+        +pbl() PBL
+        +submissions() PBLSubmission[]
+    }
+
+    class PBLSintaks {
+        +string id
+        +string pbl_id
+        +string judul
+        +text instruksi
+        +int urutan
+        +timestamps
+        ---
+        +pbl() PBL
+    }
+
+    class PBLSubmission {
+        +string id [submit-X]
+        +string pbl_id
+        +string kelompok_id
+        +string file_name
+        +string file_path
+        +int file_size
+        +text catatan
+        +int nilai
+        +text feedback
+        +datetime submitted_at
+        +timestamps
+        ---
+        +pbl() PBL
+        +kelompok() Kelompok
+    }
+
+    %% ========== SUPPORT ==========
+    class Notifikasi {
+        +string id [notif-X]
+        +int user_id
+        +string judul
+        +text pesan
+        +string tipe
+        +boolean read
+        +timestamps
+        ---
+        +user() User
+    }
+
+    class Helpdesk {
+        +string id [ticket-X]
+        +int siswa_id
+        +string kategori
+        +string judul
+        +text pesan
+        +enum status [open, in_progress, closed]
+        +text balasan
+        +timestamps
+        ---
+        +siswa() User
+    }
+
+    %% ========== PIVOT TABLES ==========
+    class materi_kelas {
+        <<Pivot>>
+        +string materi_id
+        +int kelas_id
+        +timestamps
+    }
+
+    class kuis_kelas {
+        <<Pivot>>
+        +string kuis_id
+        +int kelas_id
+        +timestamps
+    }
+
+    class pbl_kelas {
+        <<Pivot>>
+        +string pbl_id
+        +int kelas_id
+        +timestamps
+    }
+
+    %% ========== RELATIONSHIPS ==========
+    
+    %% User Relations
+    User "1" --> "0..1" Kelas : belongs to
+    User "1" --> "0..1" Jurusan : belongs to
+    User "1" --> "*" KuisAttempt : has many
+    User "1" --> "*" Notifikasi : has many
+    User "1" --> "*" Helpdesk : has many
+
+    %% Kelas & Jurusan
+    Kelas "*" --> "1" Jurusan : belongs to
+
+    %% Materi Relations
+    Materi "*" --> "1" User : created by
+    Materi "*" --> "0..1" Jurusan : belongs to
+    Materi "*" <--> "*" Kelas : many-to-many
+    Materi .. materi_kelas
+    Kelas .. materi_kelas
+
+    %% Kuis Relations
+    Kuis "*" --> "1" User : created by
+    Kuis "1" --> "*" Soal : has many
+    Kuis "1" --> "*" KuisAttempt : has many
+    Kuis "*" <--> "*" Kelas : many-to-many
+    Kuis .. kuis_kelas
+    Kelas .. kuis_kelas
+
+    %% PBL Relations
+    PBL "*" --> "1" User : created by
+    PBL "*" --> "0..1" Jurusan : belongs to
+    PBL "1" --> "*" Kelompok : has many
+    PBL "1" --> "*" PBLSintaks : has many
+    PBL "1" --> "*" PBLSubmission : has many
+    PBL "*" <--> "*" Kelas : many-to-many
+    PBL .. pbl_kelas
+    Kelas .. pbl_kelas
+
+    %% Kelompok Relations
+    Kelompok "1" --> "*" PBLSubmission : has many
+
+    %% KuisAttempt Relations
+    KuisAttempt "*" --> "1" User : siswa
+            </pre>
+        </div>
+
+        <div class="legend">
+            <h3>📋 Keterangan Warna & Entity</h3>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-color color-user"></div>
+                    <span><strong>User, Kelas, Jurusan</strong> - Master Data</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-materi"></div>
+                    <span><strong>Materi</strong> - File pembelajaran</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-kuis"></div>
+                    <span><strong>Kuis, Soal, KuisAttempt</strong> - Sistem Kuis</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-pbl"></div>
+                    <span><strong>PBL, Kelompok, Sintaks, Submission</strong> - Project Based Learning</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-support"></div>
+                    <span><strong>Notifikasi, Helpdesk</strong> - Support System</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color color-pivot"></div>
+                    <span><strong>Pivot Tables</strong> - Many-to-Many Relations</span>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Generated for Jagat Kawruh Backend | Laravel 11.x | January 2026</p>
+        </footer>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#e3f2fd',
+                primaryTextColor: '#1565c0',
+                primaryBorderColor: '#1976d2',
+                lineColor: '#78909c',
+                secondaryColor: '#f3e5f5',
+                tertiaryColor: '#fff8e1'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            }
+        });
+    </script>
+</body>
+</html>

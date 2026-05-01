@@ -17,6 +17,8 @@ class Materi extends Model
     protected $fillable = [
         'id',
         'judul',
+        'pesan_pembelajaran',
+        'link_video',
         'deskripsi',
         'kelas',
         'jurusan_id',
@@ -24,11 +26,13 @@ class Materi extends Model
         'file_path',
         'file_size',
         'status',
+        'tugas_enabled',
         'created_by'
     ];
 
     protected $casts = [
         'kelas' => 'array',
+        'tugas_enabled' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -76,5 +80,10 @@ class Materi extends Model
     {
         return $this->belongsToMany(Kelas::class, 'materi_kelas', 'materi_id', 'kelas_id')
             ->withTimestamps();
+    }
+
+    public function submissions()
+    {
+        return $this->hasMany(MateriSubmission::class, 'materi_id', 'id');
     }
 }

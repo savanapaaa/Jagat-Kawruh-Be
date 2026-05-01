@@ -52,7 +52,7 @@ class UserController extends Controller
             'password' => 'required|string|min:8',
             'role' => 'required|in:admin,guru,siswa',
             'nisn' => 'nullable|string|unique:users',
-            'nip' => 'nullable|string|unique:users',
+            'nip' => ['nullable', 'regex:/^[0-9]+$/', 'unique:users'],
             'phone' => 'nullable|string',
             'address' => 'nullable|string',
             'is_active' => 'boolean',

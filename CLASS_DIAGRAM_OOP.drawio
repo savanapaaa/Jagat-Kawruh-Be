@@ -1,0 +1,400 @@
+<mxfile host="app.diagrams.net" modified="2026-03-01T00:00:00.000Z" agent="Mozilla/5.0" version="21.0.0" type="device">
+  <diagram name="Class Diagram OOP" id="class-diagram-jagat-kawruh">
+    <mxGraphModel dx="2000" dy="1500" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2339" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- USER CLASS -->
+        <mxCell id="user-class" value="User" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="280" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="user-attr" value="- id: int&#xa;- name: string&#xa;- email: string&#xa;- password: string&#xa;- role: string&#xa;- nisn: string&#xa;- nis: string&#xa;- nip: string&#xa;- kelas: string&#xa;- kelas_id: int&#xa;- jurusan_id: int&#xa;- kelas_diampu: string&#xa;- phone: string&#xa;- address: string&#xa;- avatar: string&#xa;- is_active: boolean&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="user-class">
+          <mxGeometry y="26" width="280" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="user-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="user-class">
+          <mxGeometry y="276" width="280" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="user-methods" value="+ create(): User&#xa;+ read(): User&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): int&#xa;+ setId(int): void&#xa;+ getName(): string&#xa;+ setName(string): void&#xa;+ getEmail(): string&#xa;+ setEmail(string): void&#xa;+ getRole(): string&#xa;+ setRole(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="user-class">
+          <mxGeometry y="284" width="280" height="186" as="geometry" />
+        </mxCell>
+
+        <!-- JURUSAN CLASS -->
+        <mxCell id="jurusan-class" value="Jurusan" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="360" y="40" width="220" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="jurusan-attr" value="- id: string&#xa;- nama: string&#xa;- deskripsi: string&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="jurusan-class">
+          <mxGeometry y="26" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="jurusan-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="jurusan-class">
+          <mxGeometry y="106" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="jurusan-methods" value="+ create(): Jurusan&#xa;+ read(): Jurusan&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getNama(): string&#xa;+ setNama(string): void&#xa;+ getDeskripsi(): string&#xa;+ setDeskripsi(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="jurusan-class">
+          <mxGeometry y="114" width="220" height="126" as="geometry" />
+        </mxCell>
+
+        <!-- KELAS CLASS -->
+        <mxCell id="kelas-class" value="Kelas" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="620" y="40" width="220" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="kelas-attr" value="- id: int&#xa;- nama: string&#xa;- tingkat: int&#xa;- jurusan_id: int&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="kelas-class">
+          <mxGeometry y="26" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="kelas-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="kelas-class">
+          <mxGeometry y="116" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="kelas-methods" value="+ create(): Kelas&#xa;+ read(): Kelas&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): int&#xa;+ setId(int): void&#xa;+ getNama(): string&#xa;+ setNama(string): void&#xa;+ getTingkat(): int&#xa;+ setTingkat(int): void&#xa;+ getJurusanId(): int&#xa;+ setJurusanId(int): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="kelas-class">
+          <mxGeometry y="124" width="220" height="136" as="geometry" />
+        </mxCell>
+
+        <!-- MATERI CLASS -->
+        <mxCell id="materi-class" value="Materi" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="880" y="40" width="240" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="materi-attr" value="- id: string&#xa;- judul: string&#xa;- deskripsi: string&#xa;- kelas: string&#xa;- jurusan_id: int&#xa;- file_name: string&#xa;- file_path: string&#xa;- file_size: int&#xa;- status: string&#xa;- created_by: int&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="materi-class">
+          <mxGeometry y="26" width="240" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="materi-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="materi-class">
+          <mxGeometry y="196" width="240" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="materi-methods" value="+ create(): Materi&#xa;+ read(): Materi&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getJudul(): string&#xa;+ setJudul(string): void&#xa;+ getFilePath(): string&#xa;+ setFilePath(string): void&#xa;+ getStatus(): string&#xa;+ setStatus(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="materi-class">
+          <mxGeometry y="204" width="240" height="176" as="geometry" />
+        </mxCell>
+
+        <!-- KUIS CLASS -->
+        <mxCell id="kuis-class" value="Kuis" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="540" width="220" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="kuis-attr" value="- id: string&#xa;- judul: string&#xa;- kelas: string&#xa;- batas_waktu: int&#xa;- status: string&#xa;- created_by: int&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="kuis-class">
+          <mxGeometry y="26" width="220" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="kuis-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="kuis-class">
+          <mxGeometry y="136" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="kuis-methods" value="+ create(): Kuis&#xa;+ read(): Kuis&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getJudul(): string&#xa;+ setJudul(string): void&#xa;+ getBatasWaktu(): int&#xa;+ setBatasWaktu(int): void&#xa;+ getStatus(): string&#xa;+ setStatus(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="kuis-class">
+          <mxGeometry y="144" width="220" height="156" as="geometry" />
+        </mxCell>
+
+        <!-- SOAL CLASS -->
+        <mxCell id="soal-class" value="Soal" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="300" y="540" width="220" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="soal-attr" value="- id: string&#xa;- kuis_id: string&#xa;- pertanyaan: string&#xa;- image: string&#xa;- pilihan: array&#xa;- jawaban: string&#xa;- urutan: int&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="soal-class">
+          <mxGeometry y="26" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="soal-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="soal-class">
+          <mxGeometry y="146" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="soal-methods" value="+ create(): Soal&#xa;+ read(): Soal&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getPertanyaan(): string&#xa;+ setPertanyaan(string): void&#xa;+ getPilihan(): array&#xa;+ setPilihan(array): void&#xa;+ getJawaban(): string&#xa;+ setJawaban(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="soal-class">
+          <mxGeometry y="154" width="220" height="146" as="geometry" />
+        </mxCell>
+
+        <!-- KUIS ATTEMPT CLASS -->
+        <mxCell id="attempt-class" value="KuisAttempt" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="560" y="540" width="240" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="attempt-attr" value="- id: int&#xa;- kuis_id: string&#xa;- siswa_id: int&#xa;- token: string&#xa;- started_at: datetime&#xa;- ends_at: datetime&#xa;- submitted_at: datetime&#xa;- status: string&#xa;- score: float&#xa;- benar: int&#xa;- salah: int&#xa;- total_soal: int&#xa;- answers: array&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="attempt-class">
+          <mxGeometry y="26" width="240" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="attempt-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="attempt-class">
+          <mxGeometry y="226" width="240" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="attempt-methods" value="+ create(): KuisAttempt&#xa;+ read(): KuisAttempt&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getScore(): float&#xa;+ setScore(float): void&#xa;+ getStatus(): string&#xa;+ setStatus(string): void&#xa;+ getBenar(): int&#xa;+ getSalah(): int&#xa;+ getAnswers(): array&#xa;+ setAnswers(array): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="attempt-class">
+          <mxGeometry y="234" width="240" height="146" as="geometry" />
+        </mxCell>
+
+        <!-- HASIL KUIS CLASS -->
+        <mxCell id="hasil-class" value="HasilKuis" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="840" y="540" width="220" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="hasil-attr" value="- id: int&#xa;- kuis_id: string&#xa;- siswa_id: int&#xa;- jawaban: array&#xa;- nilai: float&#xa;- benar: int&#xa;- salah: int&#xa;- waktu_mulai: datetime&#xa;- waktu_selesai: datetime&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="hasil-class">
+          <mxGeometry y="26" width="220" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="hasil-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="hasil-class">
+          <mxGeometry y="176" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="hasil-methods" value="+ create(): HasilKuis&#xa;+ read(): HasilKuis&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getNilai(): float&#xa;+ setNilai(float): void&#xa;+ getBenar(): int&#xa;+ getSalah(): int&#xa;+ getJawaban(): array&#xa;+ setJawaban(array): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="hasil-class">
+          <mxGeometry y="184" width="220" height="136" as="geometry" />
+        </mxCell>
+
+        <!-- PBL CLASS -->
+        <mxCell id="pbl-class" value="PBL" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="960" width="240" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="pbl-attr" value="- id: string&#xa;- judul: string&#xa;- masalah: string&#xa;- tujuan_pembelajaran: string&#xa;- panduan: string&#xa;- referensi: string&#xa;- kelas: string&#xa;- jurusan_id: int&#xa;- status: string&#xa;- deadline: date&#xa;- created_by: int&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="pbl-class">
+          <mxGeometry y="26" width="240" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="pbl-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="pbl-class">
+          <mxGeometry y="206" width="240" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="pbl-methods" value="+ create(): PBL&#xa;+ read(): PBL&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getJudul(): string&#xa;+ setJudul(string): void&#xa;+ getMasalah(): string&#xa;+ setMasalah(string): void&#xa;+ getDeadline(): date&#xa;+ setDeadline(date): void&#xa;+ getStatus(): string&#xa;+ setStatus(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="pbl-class">
+          <mxGeometry y="214" width="240" height="186" as="geometry" />
+        </mxCell>
+
+        <!-- PBL SINTAKS CLASS -->
+        <mxCell id="sintaks-class" value="PBLSintaks" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="960" width="220" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="sintaks-attr" value="- id: string&#xa;- pbl_id: string&#xa;- judul: string&#xa;- instruksi: string&#xa;- urutan: int&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="sintaks-class">
+          <mxGeometry y="26" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="sintaks-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="sintaks-class">
+          <mxGeometry y="126" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="sintaks-methods" value="+ create(): PBLSintaks&#xa;+ read(): PBLSintaks&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getJudul(): string&#xa;+ setJudul(string): void&#xa;+ getInstruksi(): string&#xa;+ setInstruksi(string): void&#xa;+ getUrutan(): int&#xa;+ setUrutan(int): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="sintaks-class">
+          <mxGeometry y="134" width="220" height="146" as="geometry" />
+        </mxCell>
+
+        <!-- PBL PROGRESS CLASS -->
+        <mxCell id="progress-class" value="PBLProgress" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="580" y="960" width="220" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="progress-attr" value="- id: int&#xa;- pbl_id: string&#xa;- sintaks_id: string&#xa;- kelompok_id: string&#xa;- catatan: string&#xa;- file_path: string&#xa;- file_name: string&#xa;- submitted_at: datetime&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="progress-class">
+          <mxGeometry y="26" width="220" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="progress-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="progress-class">
+          <mxGeometry y="166" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="progress-methods" value="+ create(): PBLProgress&#xa;+ read(): PBLProgress&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getCatatan(): string&#xa;+ setCatatan(string): void&#xa;+ getFilePath(): string&#xa;+ setFilePath(string): void&#xa;+ getFileName(): string&#xa;+ setFileName(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="progress-class">
+          <mxGeometry y="174" width="220" height="126" as="geometry" />
+        </mxCell>
+
+        <!-- PBL SUBMISSION CLASS -->
+        <mxCell id="submission-class" value="PBLSubmission" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="840" y="960" width="220" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="submission-attr" value="- id: string&#xa;- pbl_id: string&#xa;- kelompok_id: string&#xa;- file_name: string&#xa;- file_path: string&#xa;- file_size: int&#xa;- catatan: string&#xa;- nilai: float&#xa;- feedback: string&#xa;- submitted_at: datetime&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="submission-class">
+          <mxGeometry y="26" width="220" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="submission-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="submission-class">
+          <mxGeometry y="186" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="submission-methods" value="+ create(): PBLSubmission&#xa;+ read(): PBLSubmission&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getNilai(): float&#xa;+ setNilai(float): void&#xa;+ getFeedback(): string&#xa;+ setFeedback(string): void&#xa;+ getFilePath(): string&#xa;+ setFilePath(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="submission-class">
+          <mxGeometry y="194" width="220" height="146" as="geometry" />
+        </mxCell>
+
+        <!-- KELOMPOK CLASS -->
+        <mxCell id="kelompok-class" value="Kelompok" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="960" width="220" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="kelompok-attr" value="- id: string&#xa;- pbl_id: string&#xa;- nama_kelompok: string&#xa;- anggota: array&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="kelompok-class">
+          <mxGeometry y="26" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="kelompok-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="kelompok-class">
+          <mxGeometry y="116" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="kelompok-methods" value="+ create(): Kelompok&#xa;+ read(): Kelompok&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getId(): string&#xa;+ setId(string): void&#xa;+ getNamaKelompok(): string&#xa;+ setNamaKelompok(string): void&#xa;+ getAnggota(): array&#xa;+ setAnggota(array): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="kelompok-class">
+          <mxGeometry y="124" width="220" height="136" as="geometry" />
+        </mxCell>
+
+        <!-- NOTIFIKASI CLASS -->
+        <mxCell id="notif-class" value="Notifikasi" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="40" width="220" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="notif-attr" value="- id: string&#xa;- user_id: int&#xa;- judul: string&#xa;- pesan: string&#xa;- tipe: string&#xa;- read: boolean&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="notif-class">
+          <mxGeometry y="26" width="220" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="notif-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="notif-class">
+          <mxGeometry y="136" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="notif-methods" value="+ create(): Notifikasi&#xa;+ read(): Notifikasi&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getJudul(): string&#xa;+ setJudul(string): void&#xa;+ getPesan(): string&#xa;+ setPesan(string): void&#xa;+ getRead(): boolean&#xa;+ setRead(boolean): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="notif-class">
+          <mxGeometry y="144" width="220" height="136" as="geometry" />
+        </mxCell>
+
+        <!-- HELPDESK CLASS -->
+        <mxCell id="helpdesk-class" value="Helpdesk" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="360" width="220" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="helpdesk-attr" value="- id: string&#xa;- siswa_id: int&#xa;- kategori: string&#xa;- judul: string&#xa;- pesan: string&#xa;- status: string&#xa;- balasan: string&#xa;- created_at: datetime&#xa;- updated_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="helpdesk-class">
+          <mxGeometry y="26" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="helpdesk-line" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="helpdesk-class">
+          <mxGeometry y="146" width="220" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="helpdesk-methods" value="+ create(): Helpdesk&#xa;+ read(): Helpdesk&#xa;+ update(): boolean&#xa;+ delete(): boolean&#xa;+ getStatus(): string&#xa;+ setStatus(string): void&#xa;+ getBalasan(): string&#xa;+ setBalasan(string): void&#xa;+ getKategori(): string&#xa;+ setKategori(string): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="helpdesk-class">
+          <mxGeometry y="154" width="220" height="146" as="geometry" />
+        </mxCell>
+
+        <!-- PIVOT TABLES -->
+        <mxCell id="pivot-materi" value="&lt;&lt;Pivot&gt;&gt;&#xa;MateriKelas" style="swimlane;fontStyle=3;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="540" width="140" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pivot-materi-attr" value="- id: int&#xa;- materi_id: string&#xa;- kelas_id: int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="pivot-materi">
+          <mxGeometry y="40" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pivot-kuis" value="&lt;&lt;Pivot&gt;&gt;&#xa;KuisKelas" style="swimlane;fontStyle=3;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="660" width="140" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pivot-kuis-attr" value="- id: int&#xa;- kuis_id: string&#xa;- kelas_id: int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="pivot-kuis">
+          <mxGeometry y="40" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pivot-pbl" value="&lt;&lt;Pivot&gt;&gt;&#xa;PBLKelas" style="swimlane;fontStyle=3;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="780" width="140" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pivot-pbl-attr" value="- id: int&#xa;- pbl_id: string&#xa;- kelas_id: int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="pivot-pbl">
+          <mxGeometry y="40" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- RELATIONSHIPS -->
+        <!-- Jurusan -> User -->
+        <mxCell id="rel1" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="jurusan-attr" target="user-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="350" y="100" as="sourcePoint" />
+            <mxPoint x="320" y="150" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel1-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel1">
+          <mxGeometry x="-0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Jurusan -> Kelas -->
+        <mxCell id="rel2" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="jurusan-attr" target="kelas-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="580" y="100" as="sourcePoint" />
+            <mxPoint x="620" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel2-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel2">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Kuis -> Soal -->
+        <mxCell id="rel3" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="kuis-attr" target="soal-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="260" y="620" as="sourcePoint" />
+            <mxPoint x="300" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel3-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel3">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Kuis -> KuisAttempt -->
+        <mxCell id="rel4" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="soal-attr" target="attempt-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="520" y="620" as="sourcePoint" />
+            <mxPoint x="560" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel4-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel4">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Kuis -> HasilKuis -->
+        <mxCell id="rel5" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="attempt-attr" target="hasil-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="800" y="680" as="sourcePoint" />
+            <mxPoint x="840" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel5-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel5">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- PBL -> PBLSintaks -->
+        <mxCell id="rel6" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="pbl-attr" target="sintaks-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="280" y="1080" as="sourcePoint" />
+            <mxPoint x="320" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel6-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel6">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- PBLSintaks -> PBLProgress -->
+        <mxCell id="rel7" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="sintaks-attr" target="progress-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="540" y="1050" as="sourcePoint" />
+            <mxPoint x="580" y="1050" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel7-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel7">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- PBL -> PBLSubmission -->
+        <mxCell id="rel8" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="progress-attr" target="submission-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="800" y="1080" as="sourcePoint" />
+            <mxPoint x="840" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel8-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel8">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Kelompok -> PBLSubmission -->
+        <mxCell id="rel9" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="kelompok-attr" target="submission-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="1060" y="1050" as="sourcePoint" />
+            <mxPoint x="1100" y="1050" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel9-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel9">
+          <mxGeometry x="-0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- User -> Notifikasi -->
+        <mxCell id="rel10" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="materi-attr" target="notif-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="1100" y="120" as="sourcePoint" />
+            <mxPoint x="1160" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel10-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel10">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- User -> Helpdesk -->
+        <mxCell id="rel11" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="notif-class" target="helpdesk-class">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="1270" y="320" as="sourcePoint" />
+            <mxPoint x="1270" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel11-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel11">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="-5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- PBL -> Kelompok -->
+        <mxCell id="rel12" value="1" style="endArrow=open;endFill=1;endSize=12;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="submission-attr" target="kelompok-attr">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="1060" y="1050" as="sourcePoint" />
+            <mxPoint x="1100" y="1050" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel12-label" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="rel12">
+          <mxGeometry x="0.8" y="1" relative="1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Diagram OOP - Jagat Kawruh</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .diagram-container {
+            background: #fff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        .legend {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .legend h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .legend-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 3px solid #00d4ff;
+        }
+        .legend-item strong {
+            color: #00d4ff;
+        }
+        .info-section {
+            margin-top: 30px;
+        }
+        .info-section h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #00d4ff;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        th {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .method-list {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: #00d4ff;
+            color: #1a1a2e;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+            transition: transform 0.2s;
+        }
+        .zoom-btn:hover {
+            transform: scale(1.1);
+        }
+        #zoomValue {
+            background: rgba(0, 212, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            color: #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Class Diagram OOP</h1>
+        <p class="subtitle">Sistem E-Learning Jagat Kawruh - Dengan Method CRUD, Getter & Setter</p>
+        
+        <div class="diagram-container" id="diagramContainer">
+            <div class="mermaid" id="mermaidDiagram">
+classDiagram
+    direction TB
+
+    %% ============================================
+    %% USER & AUTHENTICATION
+    %% ============================================
+
+    class User {
+        -int id
+        -string name
+        -string email
+        -string password
+        -string role
+        -string nisn
+        -string nis
+        -string nip
+        -string kelas
+        -int kelas_id
+        -int jurusan_id
+        -string kelas_diampu
+        -string phone
+        -string address
+        -string avatar
+        -boolean is_active
+        +create() User
+        +read() User
+        +update() boolean
+        +delete() boolean
+        +getId() int
+        +setId(int) void
+        +getName() string
+        +setName(string) void
+        +getEmail() string
+        +setEmail(string) void
+        +getRole() string
+        +setRole(string) void
+    }
+
+    class Jurusan {
+        -string id
+        -string nama
+        -string deskripsi
+        +create() Jurusan
+        +read() Jurusan
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getNama() string
+        +setNama(string) void
+        +getDeskripsi() string
+        +setDeskripsi(string) void
+    }
+
+    class Kelas {
+        -int id
+        -string nama
+        -int tingkat
+        -int jurusan_id
+        +create() Kelas
+        +read() Kelas
+        +update() boolean
+        +delete() boolean
+        +getId() int
+        +setId(int) void
+        +getNama() string
+        +setNama(string) void
+        +getTingkat() int
+        +setTingkat(int) void
+        +getJurusanId() int
+        +setJurusanId(int) void
+    }
+
+    %% ============================================
+    %% MATERI
+    %% ============================================
+
+    class Materi {
+        -string id
+        -string judul
+        -string deskripsi
+        -string kelas
+        -int jurusan_id
+        -string file_name
+        -string file_path
+        -int file_size
+        -string status
+        -int created_by
+        +create() Materi
+        +read() Materi
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getJudul() string
+        +setJudul(string) void
+        +getFilePath() string
+        +setFilePath(string) void
+        +getStatus() string
+        +setStatus(string) void
+    }
+
+    %% ============================================
+    %% KUIS & SOAL
+    %% ============================================
+
+    class Kuis {
+        -string id
+        -string judul
+        -string kelas
+        -int batas_waktu
+        -string status
+        -int created_by
+        +create() Kuis
+        +read() Kuis
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getJudul() string
+        +setJudul(string) void
+        +getBatasWaktu() int
+        +setBatasWaktu(int) void
+        +getStatus() string
+        +setStatus(string) void
+    }
+
+    class Soal {
+        -string id
+        -string kuis_id
+        -string pertanyaan
+        -string image
+        -array pilihan
+        -string jawaban
+        -int urutan
+        +create() Soal
+        +read() Soal
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getPertanyaan() string
+        +setPertanyaan(string) void
+        +getPilihan() array
+        +setPilihan(array) void
+        +getJawaban() string
+        +setJawaban(string) void
+    }
+
+    class KuisAttempt {
+        -int id
+        -string kuis_id
+        -int siswa_id
+        -string token
+        -datetime started_at
+        -datetime ends_at
+        -datetime submitted_at
+        -string status
+        -float score
+        -int benar
+        -int salah
+        -int total_soal
+        -array answers
+        +create() KuisAttempt
+        +read() KuisAttempt
+        +update() boolean
+        +delete() boolean
+        +getScore() float
+        +setScore(float) void
+        +getStatus() string
+        +setStatus(string) void
+    }
+
+    class HasilKuis {
+        -int id
+        -string kuis_id
+        -int siswa_id
+        -array jawaban
+        -float nilai
+        -int benar
+        -int salah
+        -datetime waktu_mulai
+        -datetime waktu_selesai
+        +create() HasilKuis
+        +read() HasilKuis
+        +update() boolean
+        +delete() boolean
+        +getNilai() float
+        +setNilai(float) void
+        +getBenar() int
+        +getSalah() int
+    }
+
+    %% ============================================
+    %% PBL (PROJECT BASED LEARNING)
+    %% ============================================
+
+    class PBL {
+        -string id
+        -string judul
+        -string masalah
+        -string tujuan_pembelajaran
+        -string panduan
+        -string referensi
+        -string kelas
+        -int jurusan_id
+        -string status
+        -date deadline
+        -int created_by
+        +create() PBL
+        +read() PBL
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getJudul() string
+        +setJudul(string) void
+        +getDeadline() date
+        +setDeadline(date) void
+    }
+
+    class PBLSintaks {
+        -string id
+        -string pbl_id
+        -string judul
+        -string instruksi
+        -int urutan
+        +create() PBLSintaks
+        +read() PBLSintaks
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getJudul() string
+        +setJudul(string) void
+        +getUrutan() int
+        +setUrutan(int) void
+    }
+
+    class PBLProgress {
+        -int id
+        -string pbl_id
+        -string sintaks_id
+        -string kelompok_id
+        -string catatan
+        -string file_path
+        -string file_name
+        -datetime submitted_at
+        +create() PBLProgress
+        +read() PBLProgress
+        +update() boolean
+        +delete() boolean
+        +getCatatan() string
+        +setCatatan(string) void
+        +getFilePath() string
+        +setFilePath(string) void
+    }
+
+    class PBLSubmission {
+        -string id
+        -string pbl_id
+        -string kelompok_id
+        -string file_name
+        -string file_path
+        -int file_size
+        -string catatan
+        -float nilai
+        -string feedback
+        -datetime submitted_at
+        +create() PBLSubmission
+        +read() PBLSubmission
+        +update() boolean
+        +delete() boolean
+        +getNilai() float
+        +setNilai(float) void
+        +getFeedback() string
+        +setFeedback(string) void
+    }
+
+    class Kelompok {
+        -string id
+        -string pbl_id
+        -string nama_kelompok
+        -array anggota
+        +create() Kelompok
+        +read() Kelompok
+        +update() boolean
+        +delete() boolean
+        +getId() string
+        +setId(string) void
+        +getNamaKelompok() string
+        +setNamaKelompok(string) void
+        +getAnggota() array
+        +setAnggota(array) void
+    }
+
+    %% ============================================
+    %% NOTIFIKASI & HELPDESK
+    %% ============================================
+
+    class Notifikasi {
+        -string id
+        -int user_id
+        -string judul
+        -string pesan
+        -string tipe
+        -boolean read
+        +create() Notifikasi
+        +read() Notifikasi
+        +update() boolean
+        +delete() boolean
+        +getJudul() string
+        +setJudul(string) void
+        +getPesan() string
+        +setPesan(string) void
+        +getRead() boolean
+        +setRead(boolean) void
+    }
+
+    class Helpdesk {
+        -string id
+        -int siswa_id
+        -string kategori
+        -string judul
+        -string pesan
+        -string status
+        -string balasan
+        +create() Helpdesk
+        +read() Helpdesk
+        +update() boolean
+        +delete() boolean
+        +getStatus() string
+        +setStatus(string) void
+        +getBalasan() string
+        +setBalasan(string) void
+    }
+
+    %% ============================================
+    %% PIVOT TABLES
+    %% ============================================
+
+    class MateriKelas {
+        &lt;&lt;Pivot&gt;&gt;
+        -int id
+        -string materi_id
+        -int kelas_id
+    }
+
+    class KuisKelas {
+        &lt;&lt;Pivot&gt;&gt;
+        -int id
+        -string kuis_id
+        -int kelas_id
+    }
+
+    class PBLKelas {
+        &lt;&lt;Pivot&gt;&gt;
+        -int id
+        -string pbl_id
+        -int kelas_id
+    }
+
+    %% ============================================
+    %% RELATIONSHIPS
+    %% ============================================
+
+    Jurusan "1" --> "*" User : memiliki
+    Jurusan "1" --> "*" Kelas : memiliki
+    Kelas "1" --> "*" User : memiliki siswa
+
+    User "1" --> "*" Materi : membuat
+    Jurusan "1" --> "*" Materi : untuk
+    Materi "1" --> "*" MateriKelas : melalui
+    MateriKelas "*" --> "1" Kelas : ke
+
+    User "1" --> "*" Kuis : membuat
+    Kuis "1" --> "*" KuisKelas : melalui
+    KuisKelas "*" --> "1" Kelas : ke
+    Kuis "1" --> "*" Soal : memiliki
+    Kuis "1" --> "*" KuisAttempt : memiliki
+    Kuis "1" --> "*" HasilKuis : memiliki
+
+    User "1" --> "*" KuisAttempt : mengerjakan
+    User "1" --> "*" HasilKuis : mendapat
+
+    User "1" --> "*" PBL : membuat
+    Jurusan "1" --> "*" PBL : untuk
+    PBL "1" --> "*" PBLKelas : melalui
+    PBLKelas "*" --> "1" Kelas : ke
+    PBL "1" --> "*" PBLSintaks : memiliki tahapan
+    PBL "1" --> "*" Kelompok : memiliki
+    PBL "1" --> "*" PBLSubmission : memiliki
+    PBL "1" --> "*" PBLProgress : memiliki
+
+    Kelompok "1" --> "*" PBLSubmission : mengumpulkan
+    Kelompok "1" --> "*" PBLProgress : mengerjakan
+    PBLSintaks "1" --> "*" PBLProgress : untuk
+
+    User "1" --> "*" Notifikasi : menerima
+    User "1" --> "*" Helpdesk : membuat tiket
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>📋 Keterangan Relasi</h3>
+            <div class="legend-grid">
+                <div class="legend-item"><strong>1 → *</strong> One-to-Many (Satu ke Banyak)</div>
+                <div class="legend-item"><strong>* → *</strong> Many-to-Many (melalui Pivot Table)</div>
+                <div class="legend-item"><strong>+</strong> Public method</div>
+                <div class="legend-item"><strong>-</strong> Private attribute</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>📊 Daftar Class dan Method OOP</h2>
+            
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">1. User</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getName(), getEmail(), getPassword(), getRole(), getNisn(), getNis(), getNip(), getKelas(), getKelasId(), getJurusanId(), getKelasDiampu(), getPhone(), getAddress(), getAvatar(), getIsActive()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setName(), setEmail(), setPassword(), setRole(), setNisn(), setNis(), setNip(), setKelas(), setKelasId(), setJurusanId(), setKelasDiampu(), setPhone(), setAddress(), setAvatar(), setIsActive()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">2. Jurusan</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getNama(), getDeskripsi()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setNama(), setDeskripsi()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">3. Kelas</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getNama(), getTingkat(), getJurusanId()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setNama(), setTingkat(), setJurusanId()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">4. Materi</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getJudul(), getDeskripsi(), getKelas(), getJurusanId(), getFileName(), getFilePath(), getFileSize(), getStatus(), getCreatedBy()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setJudul(), setDeskripsi(), setKelas(), setJurusanId(), setFileName(), setFilePath(), setFileSize(), setStatus(), setCreatedBy()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">5. Kuis</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getJudul(), getKelas(), getBatasWaktu(), getStatus(), getCreatedBy()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setJudul(), setKelas(), setBatasWaktu(), setStatus(), setCreatedBy()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">6. Soal</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getKuisId(), getPertanyaan(), getImage(), getPilihan(), getJawaban(), getUrutan()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setKuisId(), setPertanyaan(), setImage(), setPilihan(), setJawaban(), setUrutan()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">7. KuisAttempt</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getKuisId(), getSiswaId(), getToken(), getStartedAt(), getEndsAt(), getSubmittedAt(), getStatus(), getScore(), getBenar(), getSalah(), getTotalSoal(), getAnswers()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setKuisId(), setSiswaId(), setToken(), setStartedAt(), setEndsAt(), setSubmittedAt(), setStatus(), setScore(), setBenar(), setSalah(), setTotalSoal(), setAnswers()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">8. HasilKuis</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getKuisId(), getSiswaId(), getJawaban(), getNilai(), getBenar(), getSalah(), getWaktuMulai(), getWaktuSelesai()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setKuisId(), setSiswaId(), setJawaban(), setNilai(), setBenar(), setSalah(), setWaktuMulai(), setWaktuSelesai()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">9. PBL</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getJudul(), getMasalah(), getTujuanPembelajaran(), getPanduan(), getReferensi(), getKelas(), getJurusanId(), getStatus(), getDeadline(), getCreatedBy()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setJudul(), setMasalah(), setTujuanPembelajaran(), setPanduan(), setReferensi(), setKelas(), setJurusanId(), setStatus(), setDeadline(), setCreatedBy()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">10. PBLSintaks</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getPblId(), getJudul(), getInstruksi(), getUrutan()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setPblId(), setJudul(), setInstruksi(), setUrutan()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">11. PBLProgress</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getPblId(), getSintaksId(), getKelompokId(), getCatatan(), getFilePath(), getFileName(), getSubmittedAt()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setPblId(), setSintaksId(), setKelompokId(), setCatatan(), setFilePath(), setFileName(), setSubmittedAt()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">12. PBLSubmission</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getPblId(), getKelompokId(), getFileName(), getFilePath(), getFileSize(), getCatatan(), getNilai(), getFeedback(), getSubmittedAt()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setPblId(), setKelompokId(), setFileName(), setFilePath(), setFileSize(), setCatatan(), setNilai(), setFeedback(), setSubmittedAt()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">13. Kelompok</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getPblId(), getNamaKelompok(), getAnggota()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setPblId(), setNamaKelompok(), setAnggota()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">14. Notifikasi</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getUserId(), getJudul(), getPesan(), getTipe(), getRead()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setUserId(), setJudul(), setPesan(), setTipe(), setRead()</td></tr>
+            </table>
+
+            <h3 style="color: #00d4ff; margin: 20px 0 10px;">15. Helpdesk</h3>
+            <table>
+                <tr><th>Method Type</th><th>Methods</th></tr>
+                <tr><td>CRUD</td><td class="method-list">create(), read(), update(), delete()</td></tr>
+                <tr><td>Getter</td><td class="method-list">getId(), getSiswaId(), getKategori(), getJudul(), getPesan(), getStatus(), getBalasan()</td></tr>
+                <tr><td>Setter</td><td class="method-list">setId(), setSiswaId(), setKategori(), setJudul(), setPesan(), setStatus(), setBalasan()</td></tr>
+            </table>
+        </div>
+
+        <div class="info-section">
+            <h2>🔗 Kardinalitas Relasi</h2>
+            <table>
+                <tr><th>Relasi</th><th>Tipe</th><th>Keterangan</th></tr>
+                <tr><td>Jurusan → User</td><td>1:N</td><td>Satu jurusan memiliki banyak user</td></tr>
+                <tr><td>Jurusan → Kelas</td><td>1:N</td><td>Satu jurusan memiliki banyak kelas</td></tr>
+                <tr><td>Kelas → User</td><td>1:N</td><td>Satu kelas memiliki banyak siswa</td></tr>
+                <tr><td>Materi ↔ Kelas</td><td>N:M</td><td>Many-to-many melalui materi_kelas</td></tr>
+                <tr><td>Kuis ↔ Kelas</td><td>N:M</td><td>Many-to-many melalui kuis_kelas</td></tr>
+                <tr><td>PBL ↔ Kelas</td><td>N:M</td><td>Many-to-many melalui pbl_kelas</td></tr>
+                <tr><td>Kuis → Soal</td><td>1:N</td><td>Satu kuis memiliki banyak soal</td></tr>
+                <tr><td>Kuis → KuisAttempt</td><td>1:N</td><td>Satu kuis memiliki banyak attempt</td></tr>
+                <tr><td>User → KuisAttempt</td><td>1:N</td><td>Satu siswa memiliki banyak attempt</td></tr>
+                <tr><td>Kuis → HasilKuis</td><td>1:N</td><td>Satu kuis memiliki banyak hasil</td></tr>
+                <tr><td>PBL → PBLSintaks</td><td>1:N</td><td>Satu PBL memiliki banyak tahapan</td></tr>
+                <tr><td>PBL → Kelompok</td><td>1:N</td><td>Satu PBL memiliki banyak kelompok</td></tr>
+                <tr><td>Kelompok → PBLSubmission</td><td>1:N</td><td>Satu kelompok memiliki banyak submission</td></tr>
+                <tr><td>Kelompok → PBLProgress</td><td>1:N</td><td>Satu kelompok memiliki banyak progress</td></tr>
+                <tr><td>PBLSintaks → PBLProgress</td><td>1:N</td><td>Satu sintaks memiliki banyak progress</td></tr>
+                <tr><td>User → Notifikasi</td><td>1:N</td><td>Satu user memiliki banyak notifikasi</td></tr>
+                <tr><td>User → Helpdesk</td><td>1:N</td><td>Satu siswa memiliki banyak tiket</td></tr>
+            </table>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding: 20px; color: #666; font-size: 12px;">
+            <p>Class Diagram OOP - Sistem E-Learning Jagat Kawruh</p>
+            <p>Dokumentasi untuk Sidang Skripsi</p>
+        </div>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+        <span id="zoomValue">100%</span>
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {
+                useMaxWidth: false
+            }
+        });
+
+        let currentZoom = 1;
+        const diagramContainer = document.getElementById('diagramContainer');
+
+        function zoomIn() {
+            currentZoom = Math.min(currentZoom + 0.1, 2);
+            updateZoom();
+        }
+
+        function zoomOut() {
+            currentZoom = Math.max(currentZoom - 0.1, 0.5);
+            updateZoom();
+        }
+
+        function updateZoom() {
+            const mermaidDiv = document.querySelector('.mermaid svg');
+            if (mermaidDiv) {
+                mermaidDiv.style.transform = `scale(${currentZoom})`;
+                mermaidDiv.style.transformOrigin = 'top center';
+            }
+            document.getElementById('zoomValue').textContent = Math.round(currentZoom * 100) + '%';
+        }
+    </script>
+</body>
+</html>

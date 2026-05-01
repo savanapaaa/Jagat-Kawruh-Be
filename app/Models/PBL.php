@@ -76,4 +76,14 @@ class PBL extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * Many-to-many relationship dengan Kelas
+     * Pivot table: pbl_kelas
+     */
+    public function kelasRelation()
+    {
+        return $this->belongsToMany(Kelas::class, 'pbl_kelas', 'pbl_id', 'kelas_id')
+            ->withTimestamps();
+    }
 }
