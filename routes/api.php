@@ -135,6 +135,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Siswa boleh submit PBL
     Route::post('/pbl/{id}/submit', [PBLController::class, 'submit']);
+
+    // Download file submission PBL (guru/admin pemilik PBL, atau siswa anggota kelompok)
+    Route::get('/pbl/submissions/{id}/download', [PBLController::class, 'downloadSubmission']);
     
     // ===== PBL PROGRESS ROUTES (per sintaks/tahapan) =====
     // Semua role bisa lihat progress

@@ -16,6 +16,39 @@ use Illuminate\Support\Str;
 
 class PBLController extends Controller
 {
+    private function guruCanManageProject($user, PBL $project): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        return $user->role === 'guru' && (int) $project->created_by === (int) $user->id;
+    }
+
+    private function siswaIsMemberOfKelompok($user, ?Kelompok $kelompok): bool
+    {
+        if (!$user || $user->role !== 'siswa' || !$kelompok) {
+            return false;
+        }
+
+        if (!is_array($kelompok->anggota)) {
+            return false;
+        }
+
+        foreach ($kelompok->anggota as $anggota) {
+            $anggotaId = str_replace('siswa-', '', (string) $anggota);
+            if ($anggotaId == $user->id || (string) $anggota == (string) $user->id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function siswaCanAccessProject($user, PBL $project): bool
     {
         if (!$user || $user->role !== 'siswa') {
@@ -1181,6 +1214,58 @@ class PBLController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data submission',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download file submission PBL
+     * GET /api/pbl/submissions/{id}/download
+     */
+    public function downloadSubmission(string $id)
+    {
+        try {
+            $submission = PBLSubmission::with(['pbl', 'kelompok'])->find($id);
+            if (!$submission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Submission tidak ditemukan'
+                ], 404);
+            }
+
+            $user = auth()->user();
+            $project = $submission->pbl;
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project PBL tidak ditemukan'
+                ], 404);
+            }
+
+            $isMemberSiswa = $this->siswaIsMemberOfKelompok($user, $submission->kelompok);
+            $canManage = $this->guruCanManageProject($user, $project);
+
+            if (!$isMemberSiswa && !$canManage) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak memiliki akses'
+                ], 403);
+            }
+
+            if (!$submission->file_path || !Storage::disk('public')->exists($submission->file_path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File submission tidak ditemukan'
+                ], 404);
+            }
+
+            $absolutePath = Storage::disk('public')->path($submission->file_path);
+            return response()->download($absolutePath, $submission->file_name ?: basename($submission->file_path));
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal download file submission',
                 'error' => $e->getMessage()
             ], 500);
         }
