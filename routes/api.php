@@ -21,6 +21,7 @@ use App\Http\Controllers\PBLNilaiIndividuController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Guru\SiswaController as GuruSiswaController;
 use App\Http\Controllers\PBLProgressController;
+use App\Http\Controllers\PanduanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +48,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/profile/password', [ProfileController::class, 'changePassword']);
+
+    // ===== PANDUAN ROUTES =====
+    // Semua endpoint auth. GET hanya boleh untuk role dirinya sendiri.
+    Route::get('/panduan/{role}', [PanduanController::class, 'show'])->where('role', 'admin|guru|siswa');
+    // POST/DELETE admin-only
+    Route::middleware(['role:admin'])->group(function () {
+        Route::post('/panduan/{role}', [PanduanController::class, 'store'])->where('role', 'admin|guru|siswa');
+        Route::delete('/panduan/{role}', [PanduanController::class, 'destroy'])->where('role', 'admin|guru|siswa');
+    });
 
     // ===== JURUSAN ROUTES =====
     // Hanya GURU & ADMIN yang bisa akses
@@ -247,6 +257,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/siswa/{id}/toggle-status', [GuruSiswaController::class, 'toggleStatus']);
     });
 });
+
+// Signed URL endpoint for iframe PDF (used when PANDUAN_DISK != s3)
+Route::get('/panduan/{role}/file', [PanduanController::class, 'file'])
+    ->middleware('signed')
+    ->name('panduan.file')
+    ->where('role', 'admin|guru|siswa');
 
 // Fallback route
 Route::fallback(function () {
