@@ -14,7 +14,16 @@ class PanduanController extends Controller
     {
         $user = $request->user();
 
-        if (!$user || $user->role !== $role) {
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        // Admin can manage/view all roles in admin UI.
+        // Non-admin users can only view their own role.
+        if ($user->role !== 'admin' && $user->role !== $role) {
             return response()->json([
                 'success' => false,
                 'message' => 'Forbidden. Anda tidak memiliki akses ke resource ini.',
